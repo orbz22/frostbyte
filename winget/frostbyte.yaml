@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
+PackageIdentifier: FrostByte.FrostByte
+PackageVersion: 0.3.0
+DefaultLocale: en-US
+Publisher: FrostByte Contributors
+PackageName: FrostByte
+License: MIT
+LicenseUrl: https://github.com/your-username/frostbyte/blob/main/LICENSE
+ShortDescription: Smart thermal guardian and runaway process watchdog for Windows.
+Description: FrostByte automatically detects single-core runaway loops that cause high CPU temperatures (90°C+) and fan noise, softly taming them with Windows Job Objects or clamping Turbo Boost to 99%.
+Moniker: frostbyte
+Tags:
+  - thermal
+  - cpu
+  - temperature
+  - cooling
+  - watchdog
+  - process-manager
+  - turbo-boost
+ManifestType: version
+ManifestVersion: 1.6.0

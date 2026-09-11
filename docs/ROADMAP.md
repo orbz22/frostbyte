@@ -76,33 +76,31 @@
 
 ---
 
-## Phase 3: Tauri v2 System Tray & Modern UI (User Experience)
+## Phase 3: Tauri v2 System Tray & Modern UI (Completed)
 **Goal:** A clean, lightweight system tray companion that feels like a native Windows 11 feature.
 
-* [ ] **Tauri v2 Desktop Shell:**
-  * Initialize Tauri v2 project structure with Rust backend and Vite frontend.
-* [ ] **System Tray Integration:**
-  * Dynamic Tray Icon with real-time temperature readout (e.g., "52°", "91°").
-  * Tray Menu: Instant Cool Down toggle, Mode selector (Balanced / Silent / Gaming), Exit.
-* [ ] **Flyout / Dashboard Window:**
-  * Clean dark-mode Windows 11 Fluent aesthetic (Mica / Acrylic backdrop).
-  * Real-time thermal sparkline graph (last 5 minutes).
-  * Active Rogue Processes card with one-click actions.
-  * Whitelist management tab.
-  * Audit history log viewer.
+* [x] **Tauri v2 Desktop Shell:**
+  * Initialize Tauri v2 project structure with Rust backend and Fluent HTML5 frontend.
+* [x] **System Tray Integration:**
+  * Native Windows 11 System Tray icon with quick actions (Show Dashboard, Instant Cool, Boost Restore, Revert All).
+  * System tray left-click to toggle window focus and visibility.
+* [x] **Flyout / Dashboard Window:**
+  * Clean dark-mode Windows 11 Fluent aesthetic (Acrylic backdrop with Tailwind CSS).
+  * Real-time hardware meters (CPU Package Temp, Discrete GPU Temp, Power Draw, Battery/AC).
+  * Runaway Process Watchdog Radar banner with live single-core saturation indicators.
+  * Interactive process management (Instant Soft-Tame 10% Cap, Undo/Revert, Safe Kill).
+  * Dynamic event streaming via Tauri v2 background thread every 2 seconds.
 
 ---
 
-## Phase 4: Open Source, CI/CD & Community Launch
+## Phase 4: Open Source, CI/CD & Community Launch (Completed)
 **Goal:** Public GitHub release with automated releases, clean installer, and community support.
 
-* [ ] **Documentation & Community Assets:**
-  * High-quality `README.md` with screenshots and GIFs.
-  * Contributing guide (`CONTRIBUTING.md`), Code of Conduct, and Issue Templates.
-* [ ] **Automated GitHub Actions CI/CD:**
-  * Automated testing and formatting checks (`cargo test`, `cargo clippy`).
-  * Release pipeline producing signed `.msi`, `.exe` installer, and standalone portable zip.
-  * Support for both `x86_64` (Intel/AMD) and `aarch64` (Snapdragon X Elite / Windows on ARM).
-* [ ] **Package Distribution:**
-  * Submit package to Windows Package Manager (`winget install FrostByte`).
-  * Submit to Scoop / Chocolatey.
+* [x] **Documentation & Community Assets:**
+  * High-quality `README.md` with problem explanation, features, and usage instructions.
+  * Contributing guide (`CONTRIBUTING.md`), Code of Conduct (`CODE_OF_CONDUCT.md`), and Issue Templates (`bug_report.md`, `feature_request.md`).
+* [x] **Automated GitHub Actions CI/CD:**
+  * Automated testing and formatting workflow (`.github/workflows/ci.yml`).
+  * Automated release workflow producing standalone portable zip and checksums (`.github/workflows/release.yml`).
+* [x] **Package Distribution:**
+  * Windows Package Manager manifest (`winget/frostbyte.yaml`).

@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    name: Build Release Binaries
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Release Binaries
+        run: |
+          cargo build --workspace --release
+
+      - name: Package Portable Binaries
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/frostbyte-portable
+          Copy-Item target/release/frostbyte-cli.exe dist/frostbyte-portable/
+          Copy-Item target/release/frostbyte-app.exe dist/frostbyte-portable/
+          Copy-Item README.md dist/frostbyte-portable/
+          Copy-Item LICENSE dist/frostbyte-portable/
+          Compress-Archive -Path dist/frostbyte-portable/* -DestinationPath dist/frostbyte-windows-x86_64-portable.zip
+
+      - name: Compute SHA256 Checksums
+        shell: pwsh
+        run: |
+          Get-FileHash dist/frostbyte-windows-x86_64-portable.zip -Algorithm SHA256 | Out-File -FilePath dist/SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/frostbyte-windows-x86_64-portable.zip
+            dist/SHA256SUMS.txt
+            target/release/frostbyte-cli.exe
+            target/release/frostbyte-app.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

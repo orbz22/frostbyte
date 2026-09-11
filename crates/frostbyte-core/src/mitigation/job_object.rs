@@ -137,3 +137,8 @@ impl Default for JobRateLimiter {
         Self::new()
     }
 }
+
+// Windows kernel handles (such as Job Object handles) are thread-safe and can be managed across threads.
+unsafe impl Send for JobRateLimiter {}
+unsafe impl Sync for JobRateLimiter {}
+

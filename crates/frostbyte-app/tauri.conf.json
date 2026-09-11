@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FrostByte",
+  "version": "0.3.0",
+  "identifier": "com.frostbyte.app",
+  "build": {
+    "frontendDist": "ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "FrostByte Thermal Guardian",
+        "width": 560,
+        "height": 740,
+        "resizable": false,
+        "center": true,
+        "visible": true
+      }
+    ],
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "tooltip": "FrostByte Thermal Guardian"
+    }
+  }
+}

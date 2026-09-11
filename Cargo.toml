@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/frostbyte-core",
     "crates/frostbyte-cli",
+    "crates/frostbyte-app",
 ]
 
 [workspace.package]

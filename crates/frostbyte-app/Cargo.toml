@@ -1,0 +1,19 @@
+[package]
+name = "frostbyte-app"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2.1", features = [] }
+
+[dependencies]
+frostbyte-core = { path = "../frostbyte-core" }
+tauri = { version = "2.11", features = ["tray-icon"] }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+parking_lot = "0.12"

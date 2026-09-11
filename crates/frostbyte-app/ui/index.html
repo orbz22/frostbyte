@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FrostByte Thermal Guardian</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.2);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(56, 189, 248, 0.4);
+    }
+    .acrylic {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glow-cyan {
+      box-shadow: 0 0 20px -5px rgba(56, 189, 248, 0.3);
+    }
+    .glow-red {
+      box-shadow: 0 0 25px -5px rgba(239, 68, 68, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 flex flex-col overflow-y-auto">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+    <div class="flex items-center space-x-2.5">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-300 flex items-center justify-center text-slate-950 text-xl font-bold shadow-lg shadow-sky-500/20">
+        ❄️
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-wide text-white flex items-center gap-2">
+          FrostByte
+          <span class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">v0.3.0</span>
+        </h1>
+        <p class="text-xs text-slate-400">Thermal Guardian & Process Watchdog</p>
+      </div>
+    </div>
+    <div id="statusBadge" class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span>GUARDIAN ACTIVE</span>
+    </div>
+  </header>
+
+  <!-- Thermals & Gauges Grid -->
+  <div class="grid grid-cols-2 gap-3 mb-4">
+    <!-- CPU Thermals Card -->
+    <div class="acrylic rounded-2xl p-3.5 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <span class="flex items-center gap-1.5 font-medium">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+          CPU PACKAGE
+        </span>
+        <span id="cpuClock" class="font-mono text-[11px] text-slate-400">16 Threads</span>
+      </div>
+      <div class="flex items-baseline gap-2 my-1">
+        <span id="cpuTempText" class="text-3xl font-extrabold font-mono text-emerald-400 tracking-tight">--°C</span>
+        <span id="turboStateText" class="text-[11px] text-slate-400 font-medium">Boost Active</span>
+      </div>
+      <!-- Mini Progress Bar -->
+      <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden mt-1">
+        <div id="cpuTempBar" class="bg-emerald-400 h-full rounded-full transition-all duration-500" style="width: 45%;"></div>
+      </div>
+    </div>
+
+    <!-- GPU Thermals Card -->
+    <div class="acrylic rounded-2xl p-3.5 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <span class="flex items-center gap-1.5 font-medium">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          DISCRETE GPU
+        </span>
+        <span id="powerStatusText" class="font-mono text-[11px] text-emerald-400">AC Online</span>
+      </div>
+      <div class="flex items-baseline gap-2 my-1">
+        <span id="gpuTempText" class="text-3xl font-extrabold font-mono text-cyan-400 tracking-tight">--°C</span>
+        <span id="gpuPowerText" class="text-xs font-mono text-slate-400">-- W</span>
+      </div>
+      <!-- Mini Progress Bar -->
+      <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden mt-1">
+        <div id="gpuTempBar" class="bg-cyan-400 h-full rounded-full transition-all duration-500" style="width: 35%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart Controls & Quick Toggles -->
+  <div class="acrylic rounded-2xl p-3.5 mb-4">
+    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+      <span>Smart Governor & Mitigations</span>
+      <button onclick="revertAllTames()" class="text-[11px] text-sky-400 hover:text-sky-300 font-normal underline">Revert All Tames</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2.5">
+      <!-- Cool Down Toggle -->
+      <button id="coolModeBtn" onclick="toggleCoolMode()" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition group text-left">
+        <div>
+          <div class="text-xs font-bold text-white group-hover:text-sky-400 flex items-center gap-1">
+            <span>❄️ Instant Cool</span>
+          </div>
+          <p class="text-[10px] text-slate-400">Cap boost at 99%</p>
+        </div>
+        <div id="coolModeIndicator" class="w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700"></div>
+      </button>
+
+      <!-- Auto-Tame Toggle -->
+      <button id="autoTameBtn" onclick="toggleAutoTame()" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition group text-left">
+        <div>
+          <div class="text-xs font-bold text-white group-hover:text-emerald-400 flex items-center gap-1">
+            <span>🛡️ Auto-Tame</span>
+          </div>
+          <p class="text-[10px] text-slate-400">10% CPU Hard Cap</p>
+        </div>
+        <div id="autoTameIndicator" class="w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Runaway Loop Alert Box (Dynamic) -->
+  <div id="alertContainer" class="mb-4">
+    <!-- Populated via JS -->
+    <div class="acrylic rounded-2xl p-3.5 flex items-center gap-3 border-emerald-500/20 bg-emerald-950/10">
+      <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold flex-shrink-0">
+        ✓
+      </div>
+      <div>
+        <p class="text-xs font-bold text-emerald-400">Thermals & Threads Healthy</p>
+        <p class="text-[11px] text-slate-400">No runaway single-core loops or stuck background processes detected.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Processes Section -->
+  <div class="acrylic rounded-2xl p-3.5 flex-1 flex flex-col min-h-0">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+        <span>Active Processes</span>
+        <span id="totalCpuBadge" class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-sky-400">CPU: 0.0%</span>
+      </div>
+      <span class="text-[10px] text-slate-500">Live 2s Refresh</span>
+    </div>
+
+    <!-- Table Container -->
+    <div class="flex-1 overflow-y-auto pr-1">
+      <table class="w-full text-left text-xs">
+        <thead class="text-[10px] uppercase text-slate-500 border-b border-slate-800 sticky top-0 bg-slate-900/90 backdrop-blur z-10">
+          <tr>
+            <th class="py-1.5 px-2">Process</th>
+            <th class="py-1.5 px-2 text-right">Total CPU</th>
+            <th class="py-1.5 px-2 text-right">Core Saturation</th>
+            <th class="py-1.5 px-2 text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody id="processTableBody" class="divide-y divide-slate-800/60 font-mono text-[11px]">
+          <tr>
+            <td colspan="4" class="py-4 text-center text-slate-500">Sampling process baseline...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-3 text-center text-[10px] text-slate-500">
+    FrostByte open-source guardian • Safe-by-default architecture
+  </footer>
+
+  <!-- Script logic interfacing with Tauri v2 -->
+  <script>
+    let isCoolModeActive = false;
+    let isAutoTameActive = false;
+
+    // Helper for invoking Tauri commands safely
+    async function invokeCmd(cmd, args = {}) {
+      if (window.__TAURI__ && window.__TAURI__.core) {
+        return await window.__TAURI__.core.invoke(cmd, args);
+      } else {
+        console.warn(`Tauri invoke '${cmd}' called in browser mock mode`);
+        return null;
+      }
+    }
+
+    async function toggleCoolMode() {
+      isCoolModeActive = !isCoolModeActive;
+      try {
+        await invokeCmd('set_cool_mode', { enabled: isCoolModeActive });
+        updateGovernorUI(isCoolModeActive);
+      } catch (err) {
+        console.error("Failed to toggle cool mode:", err);
+      }
+    }
+
+    async function toggleAutoTame() {
+      isAutoTameActive = !isAutoTameActive;
+      try {
+        await invokeCmd('set_auto_tame', { enabled: isAutoTameActive });
+        updateAutoTameUI(isAutoTameActive);
+      } catch (err) {
+        console.error("Failed to toggle auto tame:", err);
+      }
+    }
+
+    async function softTamePid(pid) {
+      try {
+        await invokeCmd('soft_tame_process', { pid: Number(pid), cpuLimit: 10 });
+      } catch (err) {
+        alert("Failed to tame process: " + err);
+      }
+    }
+
+    async function terminatePid(pid, name) {
+      if (confirm(`Are you sure you want to terminate '${name}' (PID ${pid})?`)) {
+        try {
+          await invokeCmd('terminate_process', { pid: Number(pid), processName: name });
+        } catch (err) {
+          alert("Terminate refused: " + err);
+        }
+      }
+    }
+
+    async function revertPid(pid) {
+      try {
+        await invokeCmd('revert_process', { pid: Number(pid) });
+      } catch (err) {
+        console.error("Failed to revert process:", err);
+      }
+    }
+
+    async function revertAllTames() {
+      try {
+        await invokeCmd('revert_all');
+      } catch (err) {
+        console.error("Failed to revert all:", err);
+      }
+    }
+
+    function updateGovernorUI(clamped) {
+      const btn = document.getElementById('coolModeBtn');
+      const ind = document.getElementById('coolModeIndicator');
+      const turboText = document.getElementById('turboStateText');
+      if (clamped) {
+        btn.classList.add('border-sky-500', 'bg-sky-950/20');
+        ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-sky-400 bg-sky-400 shadow-[0_0_8px_#38bdf8]';
+        turboText.textContent = "99% Clamped";
+        turboText.className = "text-[11px] text-sky-400 font-semibold";
+      } else {
+        btn.classList.remove('border-sky-500', 'bg-sky-950/20');
+        ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700';
+        turboText.textContent = "Boost On";
+        turboText.className = "text-[11px] text-slate-400 font-medium";
+      }
+    }
+
+    function updateAutoTameUI(enabled) {
+      const btn = document.getElementById('autoTameBtn');
+      const ind = document.getElementById('autoTameIndicator');
+      if (enabled) {
+        btn.classList.add('border-emerald-500', 'bg-emerald-950/20');
+        ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-emerald-400 bg-emerald-400 shadow-[0_0_8px_#34d399]';
+      } else {
+        btn.classList.remove('border-emerald-500', 'bg-emerald-950/20');
+        ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700';
+      }
+    }
+
+    function renderSnapshot(snapshot) {
+      if (!snapshot) return;
+
+      // 1. Thermals
+      const cpuTemp = snapshot.thermals.cpu_package_temp;
+      const cpuEl = document.getElementById('cpuTempText');
+      const cpuBar = document.getElementById('cpuTempBar');
+
+      if (cpuTemp !== null && cpuTemp !== undefined) {
+        cpuEl.textContent = `${cpuTemp.toFixed(1)}°C`;
+        const pct = Math.min(100, Math.max(10, (cpuTemp / 100) * 100));
+        cpuBar.style.width = `${pct}%`;
+
+        if (cpuTemp >= 85) {
+          cpuEl.className = "text-3xl font-extrabold font-mono text-red-500";
+          cpuBar.className = "bg-red-500 h-full rounded-full transition-all";
+        } else if (cpuTemp >= 70) {
+          cpuEl.className = "text-3xl font-extrabold font-mono text-yellow-400";
+          cpuBar.className = "bg-yellow-400 h-full rounded-full transition-all";
+        } else {
+          cpuEl.className = "text-3xl font-extrabold font-mono text-emerald-400";
+          cpuBar.className = "bg-emerald-400 h-full rounded-full transition-all";
+        }
+      } else {
+        cpuEl.textContent = "Safe";
+        cpuEl.className = "text-3xl font-extrabold font-mono text-slate-400";
+      }
+
+      // GPU
+      const gpuTemp = snapshot.thermals.gpu_temp;
+      const gpuEl = document.getElementById('gpuTempText');
+      const gpuBar = document.getElementById('gpuTempBar');
+      if (gpuTemp !== null && gpuTemp !== undefined) {
+        gpuEl.textContent = `${gpuTemp.toFixed(1)}°C`;
+        gpuBar.style.width = `${Math.min(100, (gpuTemp / 90) * 100)}%`;
+      } else {
+        gpuEl.textContent = "N/A";
+      }
+
+      const gpuPower = snapshot.thermals.gpu_power_w;
+      document.getElementById('gpuPowerText').textContent = gpuPower ? `${gpuPower.toFixed(1)} W` : "";
+
+      // Power
+      const powerEl = document.getElementById('powerStatusText');
+      if (snapshot.thermals.is_ac_online) {
+        powerEl.textContent = "AC Online";
+        powerEl.className = "font-mono text-[11px] text-emerald-400";
+      } else {
+        powerEl.textContent = "Battery";
+        powerEl.className = "font-mono text-[11px] text-yellow-400";
+      }
+
+      // Turbo Boost state
+      updateGovernorUI(snapshot.is_turbo_boost_clamped);
+      isCoolModeActive = snapshot.is_turbo_boost_clamped;
+
+      // Cores & Total CPU
+      document.getElementById('cpuClock').textContent = `${snapshot.logical_cores} Threads`;
+      document.getElementById('totalCpuBadge').textContent = `CPU: ${snapshot.total_cpu_pct.toFixed(1)}%`;
+
+      // 2. Rogue Alerts
+      const alertContainer = document.getElementById('alertContainer');
+      const statusBadge = document.getElementById('statusBadge');
+
+      if (snapshot.rogue_alerts && snapshot.rogue_alerts.length > 0) {
+        statusBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold animate-pulse";
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span><span>ROGUE DETECTED (${snapshot.rogue_alerts.length})</span>`;
+
+        let html = '';
+        for (const alert of snapshot.rogue_alerts) {
+          const isTamed = snapshot.tamed_pids && snapshot.tamed_pids.includes(alert.pid);
+          html += `
+            <div class="acrylic rounded-2xl p-3.5 border-red-500/40 bg-red-950/20 mb-2 glow-red">
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-extrabold text-red-400 uppercase tracking-wide">🚨 Runaway Single-Core Loop</span>
+                    ${isTamed ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">TAMED (10% CAP)</span>' : ''}
+                  </div>
+                  <p class="text-sm font-bold text-white mt-1">${alert.process_name} <span class="text-xs text-slate-400 font-mono">(PID: ${alert.pid})</span></p>
+                  <p class="text-[11px] text-amber-300/90 mt-0.5">Core Saturation: <span class="font-bold">${alert.single_core_saturation_pct.toFixed(1)}%</span> • Duration: ${alert.sustained_seconds}s</p>
+                  <p class="text-[10px] text-slate-400 mt-0.5">${alert.reason}</p>
+                </div>
+                <div class="flex flex-col gap-1.5 flex-shrink-0 ml-3">
+                  ${!isTamed ? `<button onclick="softTamePid(${alert.pid})" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow">🛡️ Tame (10%)</button>` : `<button onclick="revertPid(${alert.pid})" class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-white">Undo</button>`}
+                  <button onclick="terminatePid(${alert.pid}, '${alert.process_name}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-red-600/80 hover:bg-red-600 text-white">❌ Kill</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+        alertContainer.innerHTML = html;
+      } else {
+        statusBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold";
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>GUARDIAN ACTIVE</span>`;
+        alertContainer.innerHTML = `
+          <div class="acrylic rounded-2xl p-3 flex items-center gap-3 border-emerald-500/20 bg-emerald-950/10">
+            <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
+              ✓
+            </div>
+            <div>
+              <p class="text-xs font-bold text-emerald-400">Thermals & Threads Healthy</p>
+              <p class="text-[11px] text-slate-400">No runaway single-core loops detected.</p>
+            </div>
+          </div>
+        `;
+      }
+
+      // 3. Process Table
+      const tbody = document.getElementById('processTableBody');
+      if (snapshot.top_processes && snapshot.top_processes.length > 0) {
+        let rows = '';
+        for (const p of snapshot.top_processes) {
+          const isTamed = snapshot.tamed_pids && snapshot.tamed_pids.includes(p.pid);
+          let satColor = "text-slate-400";
+          if (p.top_thread_saturation_pct >= 80) satColor = "text-red-400 font-bold";
+          else if (p.top_thread_saturation_pct >= 40) satColor = "text-yellow-400 font-semibold";
+
+          rows += `
+            <tr class="hover:bg-slate-800/40 transition">
+              <td class="py-1.5 px-2">
+                <div class="font-medium text-white truncate max-w-[140px]">${p.name}</div>
+                <div class="text-[9px] text-slate-500">PID: ${p.pid} ${p.is_orphan ? '<span class="text-red-400 font-bold ml-1">ORPHAN</span>' : ''}</div>
+              </td>
+              <td class="py-1.5 px-2 text-right text-slate-300 font-bold">${p.total_cpu_pct.toFixed(1)}%</td>
+              <td class="py-1.5 px-2 text-right ${satColor}">${p.top_thread_saturation_pct.toFixed(1)}%</td>
+              <td class="py-1.5 px-2 text-center">
+                ${isTamed ?
+                  `<button onclick="revertPid(${p.pid})" class="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">TAMED</button>` :
+                  `<button onclick="softTamePid(${p.pid})" class="text-[10px] text-slate-400 hover:text-sky-400 px-1.5 py-0.5 rounded hover:bg-slate-800">Tame</button>`
+                }
+              </td>
+            </tr>
+          `;
+        }
+        tbody.innerHTML = rows;
+      }
+    }
+
+    // Connect to Tauri v2 event or fallback polling
+    async function initApp() {
+      // 1. Fetch initial snapshot
+      try {
+        const initial = await invokeCmd('get_snapshot');
+        if (initial) renderSnapshot(initial);
+      } catch (e) {
+        console.error("Failed initial snapshot:", e);
+      }
+
+      // 2. Listen to live event
+      if (window.__TAURI__ && window.__TAURI__.event) {
+        window.__TAURI__.event.listen('snapshot-update', (event) => {
+          renderSnapshot(event.payload);
+        });
+      } else {
+        // Fallback interval polling for browser testing
+        setInterval(async () => {
+          const s = await invokeCmd('get_snapshot');
+          if (s) renderSnapshot(s);
+        }, 2000);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
