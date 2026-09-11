@@ -50,6 +50,7 @@ pub struct SystemSnapshot {
     pub total_cpu_pct: f32,
     pub logical_cores: u32,
     pub is_turbo_boost_clamped: bool,
+    pub auto_tame_enabled: bool,
     pub tamed_pids: Vec<u32>,
     pub top_processes: Vec<ProcessSample>,
     pub rogue_alerts: Vec<RogueAlert>,

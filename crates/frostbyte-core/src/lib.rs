@@ -95,6 +95,7 @@ impl Watchdog {
             total_cpu_pct,
             logical_cores: self.process.logical_cores(),
             is_turbo_boost_clamped,
+            auto_tame_enabled: self.auto_tame_enabled,
             tamed_pids,
             top_processes,
             rogue_alerts,

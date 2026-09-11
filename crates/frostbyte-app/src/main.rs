@@ -3,6 +3,9 @@
 
 use frostbyte_core::{SystemSnapshot, Watchdog};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{
@@ -11,9 +14,56 @@ use tauri::{
     Emitter, Manager, State,
 };
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppConfig {
+    pub auto_tame: bool,
+    pub cool_mode: bool,
+    pub saturation_threshold: f32,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            auto_tame: false,
+            cool_mode: false,
+            saturation_threshold: 80.0,
+        }
+    }
+}
+
+fn get_config_path() -> PathBuf {
+    if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+        let dir = PathBuf::from(local_appdata).join("FrostByte");
+        let _ = fs::create_dir_all(&dir);
+        dir.join("config.json")
+    } else {
+        PathBuf::from("frostbyte_config.json")
+    }
+}
+
+fn load_config() -> AppConfig {
+    let path = get_config_path();
+    if let Ok(content) = fs::read_to_string(&path) {
+        if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+            return config;
+        }
+    }
+    let default_cfg = AppConfig::default();
+    save_config(&default_cfg);
+    default_cfg
+}
+
+fn save_config(config: &AppConfig) {
+    let path = get_config_path();
+    if let Ok(content) = serde_json::to_string_pretty(config) {
+        let _ = fs::write(path, content);
+    }
+}
+
 struct AppState {
     watchdog: Arc<Mutex<Watchdog>>,
     latest_snapshot: Arc<Mutex<Option<SystemSnapshot>>>,
+    config: Arc<Mutex<AppConfig>>,
 }
 
 #[tauri::command]
@@ -27,14 +77,24 @@ fn set_cool_mode(state: State<'_, AppState>, enabled: bool) -> Result<bool, Stri
     // false to enable cool mode (99%), true to enable boost (100%)
     watchdog
         .set_turbo_boost(!enabled)
-        .map(|_| enabled)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    let mut cfg = state.config.lock();
+    cfg.cool_mode = enabled;
+    save_config(&cfg);
+
+    Ok(enabled)
 }
 
 #[tauri::command]
 fn set_auto_tame(state: State<'_, AppState>, enabled: bool) -> bool {
     let mut watchdog = state.watchdog.lock();
     watchdog.set_auto_tame(enabled);
+
+    let mut cfg = state.config.lock();
+    cfg.auto_tame = enabled;
+    save_config(&cfg);
+
     enabled
 }
 
@@ -67,12 +127,17 @@ fn revert_all(state: State<'_, AppState>) -> usize {
 }
 
 fn main() {
-    let mut initial_wd = Watchdog::with_settings(80.0, 3, 2, false);
+    let config = load_config();
+    let mut initial_wd = Watchdog::with_settings(config.saturation_threshold, 3, 2, config.auto_tame);
+    if config.cool_mode {
+        let _ = initial_wd.set_turbo_boost(false);
+    }
     // Populate the snapshot immediately with real system data on startup
     let initial_snapshot = initial_wd.tick();
 
     let watchdog = Arc::new(Mutex::new(initial_wd));
     let latest_snapshot = Arc::new(Mutex::new(Some(initial_snapshot)));
+    let config_arc = Arc::new(Mutex::new(config));
 
     let watchdog_clone = Arc::clone(&watchdog);
     let snapshot_clone = Arc::clone(&latest_snapshot);
@@ -81,6 +146,14 @@ fn main() {
         .manage(AppState {
             watchdog: Arc::clone(&watchdog),
             latest_snapshot: Arc::clone(&latest_snapshot),
+            config: Arc::clone(&config_arc),
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Clicking 'X' minimizes/hides to the system tray rather than killing the guardian
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .setup(move |app| {
             // Build Tray Menu
@@ -113,11 +186,17 @@ fn main() {
                         let state = app.state::<AppState>();
                         let mut wd = state.watchdog.lock();
                         let _ = wd.set_turbo_boost(false);
+                        let mut cfg = state.config.lock();
+                        cfg.cool_mode = true;
+                        save_config(&cfg);
                     }
                     "boost" => {
                         let state = app.state::<AppState>();
                         let mut wd = state.watchdog.lock();
                         let _ = wd.set_turbo_boost(true);
+                        let mut cfg = state.config.lock();
+                        cfg.cool_mode = false;
+                        save_config(&cfg);
                     }
                     "revert" => {
                         let state = app.state::<AppState>();

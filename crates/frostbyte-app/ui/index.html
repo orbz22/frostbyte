@@ -375,6 +375,12 @@
       updateGovernorUI(snapshot.is_turbo_boost_clamped);
       isCoolModeActive = snapshot.is_turbo_boost_clamped;
 
+      // Auto Tame state
+      if (snapshot.auto_tame_enabled !== undefined && snapshot.auto_tame_enabled !== null) {
+        updateAutoTameUI(snapshot.auto_tame_enabled);
+        isAutoTameActive = snapshot.auto_tame_enabled;
+      }
+
       // Cores & Total CPU
       const cpuClock = document.getElementById('cpuClock');
       if (cpuClock) cpuClock.textContent = `${snapshot.logical_cores || 16} Threads`;
