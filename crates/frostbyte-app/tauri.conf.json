@@ -18,10 +18,6 @@
         "center": true,
         "visible": true
       }
-    ],
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "tooltip": "FrostByte Thermal Guardian"
-    }
+    ]
   }
 }

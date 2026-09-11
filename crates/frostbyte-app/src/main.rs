@@ -5,7 +5,9 @@ use frostbyte_core::{SystemSnapshot, Watchdog};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{
@@ -14,10 +16,52 @@ use tauri::{
     Emitter, Manager, State,
 };
 
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+const REG_RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+const APP_REG_NAME: &str = "FrostByte";
+
+fn is_autostart_registered() -> bool {
+    let output = Command::new("reg")
+        .creation_flags(CREATE_NO_WINDOW)
+        .args(["query", REG_RUN_KEY, "/v", APP_REG_NAME])
+        .output();
+
+    if let Ok(output) = output {
+        output.status.success()
+    } else {
+        false
+    }
+}
+
+fn set_autostart_registry(enabled: bool) -> Result<(), String> {
+    if enabled {
+        let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
+        let cmd = format!("\"{}\" --minimized", exe_path.display());
+        let output = Command::new("reg")
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["add", REG_RUN_KEY, "/v", APP_REG_NAME, "/t", "REG_SZ", "/d", &cmd, "/f"])
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).to_string())
+        }
+    } else {
+        let _ = Command::new("reg")
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["delete", REG_RUN_KEY, "/v", APP_REG_NAME, "/f"])
+            .output();
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub auto_tame: bool,
     pub cool_mode: bool,
+    pub autostart: bool,
     pub saturation_threshold: f32,
 }
 
@@ -26,6 +70,7 @@ impl Default for AppConfig {
         Self {
             auto_tame: false,
             cool_mode: false,
+            autostart: false,
             saturation_threshold: 80.0,
         }
     }
@@ -44,11 +89,14 @@ fn get_config_path() -> PathBuf {
 fn load_config() -> AppConfig {
     let path = get_config_path();
     if let Ok(content) = fs::read_to_string(&path) {
-        if let Ok(config) = serde_json::from_str::<AppConfig>(&content) {
+        if let Ok(mut config) = serde_json::from_str::<AppConfig>(&content) {
+            // Re-sync with actual registry state
+            config.autostart = is_autostart_registered();
             return config;
         }
     }
-    let default_cfg = AppConfig::default();
+    let mut default_cfg = AppConfig::default();
+    default_cfg.autostart = is_autostart_registered();
     save_config(&default_cfg);
     default_cfg
 }
@@ -96,6 +144,22 @@ fn set_auto_tame(state: State<'_, AppState>, enabled: bool) -> bool {
     save_config(&cfg);
 
     enabled
+}
+
+#[tauri::command]
+fn get_autostart() -> bool {
+    is_autostart_registered()
+}
+
+#[tauri::command]
+fn set_autostart(state: State<'_, AppState>, enabled: bool) -> Result<bool, String> {
+    set_autostart_registry(enabled)?;
+
+    let mut cfg = state.config.lock();
+    cfg.autostart = enabled;
+    save_config(&cfg);
+
+    Ok(enabled)
 }
 
 #[tauri::command]
@@ -156,7 +220,14 @@ fn main() {
             }
         })
         .setup(move |app| {
-            // Build Tray Menu
+            // Check if started with --minimized (e.g. from Windows startup)
+            if std::env::args().any(|arg| arg == "--minimized") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+
+            // Build Single Tray Menu & Icon
             let toggle_show = MenuItemBuilder::with_id("show", "Show FrostByte Dashboard").build(app)?;
             let sep1 = tauri::menu::PredefinedMenuItem::separator(app)?;
             let cool_mode = MenuItemBuilder::with_id("cool", "❄️ Instant Cool Down (99% Boost Clamp)").build(app)?;
@@ -254,6 +325,8 @@ fn main() {
             get_snapshot,
             set_cool_mode,
             set_auto_tame,
+            get_autostart,
+            set_autostart,
             soft_tame_process,
             terminate_process,
             revert_process,

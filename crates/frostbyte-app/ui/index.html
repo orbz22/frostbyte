@@ -121,7 +121,7 @@
       <button onclick="revertAllTames()" class="text-[11px] text-sky-400 hover:text-sky-300 font-normal underline">Revert All Tames</button>
     </div>
 
-    <div class="grid grid-cols-2 gap-2.5">
+    <div class="grid grid-cols-2 gap-2.5 mb-2.5">
       <!-- Cool Down Toggle -->
       <button id="coolModeBtn" onclick="toggleCoolMode()" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition group text-left">
         <div>
@@ -142,6 +142,19 @@
           <p class="text-[10px] text-slate-400">10% CPU Hard Cap</p>
         </div>
         <div id="autoTameIndicator" class="w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700"></div>
+      </button>
+    </div>
+
+    <!-- Auto-Start Toggle Row -->
+    <div class="flex items-center justify-between pt-2.5 border-t border-slate-800/60 text-xs">
+      <div class="flex items-center gap-2">
+        <span>🚀</span>
+        <span class="text-slate-300 font-medium">Auto-Start with Windows</span>
+        <span class="text-[10px] text-slate-500">(Starts minimized to tray)</span>
+      </div>
+      <button id="autoStartBtn" onclick="toggleAutoStart()" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
+        <span id="autoStartText" class="text-[11px] text-slate-400 font-medium">Disabled</span>
+        <div id="autoStartIndicator" class="w-2 h-2 rounded-full bg-slate-600"></div>
       </button>
     </div>
   </div>
@@ -295,6 +308,40 @@
         ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700';
         turboText.textContent = "Boost On";
         turboText.className = "text-[11px] text-slate-400 font-medium";
+      }
+    }
+
+    let isAutoStartActive = false;
+
+    async function toggleAutoStart() {
+      isAutoStartActive = !isAutoStartActive;
+      try {
+        const res = await invokeCmd('set_autostart', { enabled: isAutoStartActive });
+        if (res !== null && res !== undefined) {
+          isAutoStartActive = res;
+          updateAutoStartUI(res);
+        }
+      } catch (err) {
+        console.error("Failed to toggle auto start:", err);
+      }
+    }
+
+    function updateAutoStartUI(enabled) {
+      const btn = document.getElementById('autoStartBtn');
+      const ind = document.getElementById('autoStartIndicator');
+      const txt = document.getElementById('autoStartText');
+      if (!btn || !ind || !txt) return;
+
+      if (enabled) {
+        btn.classList.add('border-amber-500/50', 'bg-amber-950/20');
+        ind.className = 'w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]';
+        txt.textContent = "Enabled";
+        txt.className = "text-[11px] text-amber-400 font-semibold";
+      } else {
+        btn.classList.remove('border-amber-500/50', 'bg-amber-950/20');
+        ind.className = 'w-2 h-2 rounded-full bg-slate-600';
+        txt.textContent = "Disabled";
+        txt.className = "text-[11px] text-slate-400 font-medium";
       }
     }
 
@@ -492,8 +539,18 @@
         await new Promise(r => setTimeout(r, 100));
       }
 
-      // 1. Immediate initial snapshot pull
+      // 1. Immediate initial snapshot & autostart pull
       await refreshNow();
+
+      try {
+        const autostart = await invokeCmd('get_autostart');
+        if (autostart !== null && autostart !== undefined) {
+          isAutoStartActive = autostart;
+          updateAutoStartUI(autostart);
+        }
+      } catch (err) {
+        console.warn("Autostart query notice:", err);
+      }
 
       // 2. Continuous reliable polling loop every 1.5 seconds
       setInterval(async () => {
