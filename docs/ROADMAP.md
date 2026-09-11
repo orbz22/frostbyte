@@ -56,22 +56,23 @@
 
 ---
 
-## Phase 2: Mitigation & Governor Engine (Action Milestone)
+## Phase 2: Mitigation & Governor Engine (Completed)
 **Goal:** Automate cooling and non-destructive process taming.
 
-* [ ] **Job Object CPU Rate Limiter:**
+* [x] **Job Object CPU Rate Limiter:**
   * Implement `CreateJobObjectW` and `JOBOBJECT_CPU_RATE_CONTROL_INFORMATION`.
   * Support soft-taming rogue processes to a hard 10% CPU cap.
-  * Add one-click revert to remove job constraints.
-* [ ] **Smart Thermal Power Governor:**
-  * Implement Windows Power Scheme API via `powrprof.dll`.
+  * Add automatic and manual revert to remove job constraints on demand and on shutdown.
+* [x] **Smart Thermal Power Governor:**
+  * Implement Windows Power Scheme API via `powrprof` / `powercfg`.
   * Auto-adjust `PROCTHROTTLEMAX` (100% $\to$ 99%) when CPU Package Temp $>90^\circ\text{C}$ on AC power.
-  * Implement hysteresis cool-down (restore to 100% once Temp $\le 68^\circ\text{C}$ for 15s).
-* [ ] **Context Safeguards:**
-  * Windows Core Audio API (WASAPI) check to exempt active audio streams.
-  * `SHQueryUserNotificationState` to exempt fullscreen games/presentations.
-* [ ] **Native Windows Toast Notifications:**
-  * Push interactive toast when a rogue process is flagged with buttons: `[Tame (10% Cap)]`, `[Kill]`, `[Whitelist]`.
+  * Implement hysteresis cool-down (restore to 100% once Temp $\le 65^\circ\text{C}$ for stable duration).
+  * One-click CLI controls (`--cool` and `--boost-on`).
+* [x] **Safe Process Termination:**
+  * Implement `ProcessActionController` with strict `SafetyEngine` immunity checks.
+* [x] **CLI Mitigation Integration:**
+  * Added `--auto-tame` flag for autonomous background taming of detected runaway loops.
+  * Live status display for Turbo Boost mode and currently tamed PIDs.
 
 ---
 

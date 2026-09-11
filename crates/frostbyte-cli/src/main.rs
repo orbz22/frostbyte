@@ -6,19 +6,54 @@ use std::time::Duration;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
+
+    // 1. One-off CLI commands
+    if args.iter().any(|a| a == "--cool") {
+        println!("{}", "❄️ FrostByte: Activating Instant Cool Down mode (clamping Turbo Boost to 99%)...".cyan().bold());
+        let mut watchdog = Watchdog::new();
+        watchdog.set_turbo_boost(false)?;
+        println!("{}", "✅ Success: Maximum Processor State set to 99%. Turbo Boost disabled. Thermals will drop shortly.".green());
+        return Ok(());
+    }
+
+    if args.iter().any(|a| a == "--boost-on") {
+        println!("{}", "⚡ FrostByte: Restoring normal Turbo Boost mode (100%)...".yellow().bold());
+        let mut watchdog = Watchdog::new();
+        watchdog.set_turbo_boost(true)?;
+        println!("{}", "✅ Success: Maximum Processor State restored to 100%. Full boost enabled.".green());
+        return Ok(());
+    }
+
+    if let Some(idx) = args.iter().position(|a| a == "--tame") {
+        if let Some(pid_str) = args.get(idx + 1) {
+            let pid: u32 = pid_str.parse().expect("Invalid PID");
+            println!("{}", format!("🛡️ FrostByte: Soft-taming PID {} with 10% CPU hard cap...", pid).cyan());
+            let mut watchdog = Watchdog::new();
+            watchdog.soft_tame_process(pid, 10)?;
+            println!("{}", format!("✅ PID {} assigned to Windows Job Object with 10% CPU limit.", pid).green());
+            return Ok(());
+        }
+    }
+
     let once_mode = args.iter().any(|arg| arg == "--once");
+    let auto_tame = args.iter().any(|arg| arg == "--auto-tame");
     let max_ticks: Option<u64> = args.iter().position(|arg| arg == "--count").and_then(|idx| {
         args.get(idx + 1).and_then(|val| val.parse().ok())
     });
 
     // Print banner
     println!("{}", "=======================================================".cyan());
-    println!("{}", "   ❄️  FrostByte — Thermal & Process Watchdog (v0.1.0)   ".cyan().bold());
-    println!("{}", "   Phase 1: Real-time Telemetry & Single-Core Loop Hunter".white());
+    println!("{}", "   ❄️  FrostByte — Thermal & Process Watchdog (v0.2.0)   ".cyan().bold());
+    println!("{}", "   Phase 2: Automated Mitigation & Soft-Tame Engine     ".white());
     println!("{}", "=======================================================".cyan());
+    if auto_tame {
+        println!("{}", "⚡ Mode: AUTO-TAME ACTIVE (Rogue processes will be throttled to 10% CPU)".yellow().bold());
+    } else {
+        println!("{}", "🔍 Mode: Monitoring & Alerting (Run with --auto-tame to enable active mitigation)".bright_black());
+    }
     println!("Initializing hardware sensors & process watcher...\n");
 
-    let mut watchdog = Watchdog::with_settings(80.0, 3, 2); // 3 ticks * 2s = 6s for quick detection
+    let mut watchdog = Watchdog::with_settings(80.0, 3, 2, auto_tame);
 
     // Initial warm-up tick to establish baseline CPU counters
     println!("Sampling initial process baseline (waiting 2s)...");
@@ -72,15 +107,30 @@ async fn main() -> anyhow::Result<()> {
             "Battery Mode".yellow()
         };
 
+        let governor_str = if snapshot.is_turbo_boost_clamped {
+            "CLAMPED (99% Cool Mode)".yellow().bold()
+        } else {
+            "Normal (100% Boost On)".green()
+        };
+
         println!(
             "CPU Temp: {:<18} | GPU Temp: {:<16} | GPU Power: {}",
             cpu_temp_str, gpu_temp_str, gpu_power_str
         );
         println!(
-            "Power State: {:<15} | Cores: {:<19} | Total CPU: {:.1}%",
+            "Power: {:<21} | Turbo Boost: {:<12} | Cores: {}",
             power_str,
-            format!("{} Threads", snapshot.logical_cores).cyan(),
-            snapshot.total_cpu_pct
+            governor_str,
+            format!("{} Threads", snapshot.logical_cores).cyan()
+        );
+        println!(
+            "Total CPU: {:<17} | Tamed PIDs: {}",
+            format!("{:.1}%", snapshot.total_cpu_pct).cyan(),
+            if snapshot.tamed_pids.is_empty() {
+                "None".bright_black()
+            } else {
+                format!("{:?}", snapshot.tamed_pids).green().bold()
+            }
         );
         println!("{}", "--------------------------------------------------------------------------------".bright_black());
 
@@ -88,12 +138,22 @@ async fn main() -> anyhow::Result<()> {
         if !snapshot.rogue_alerts.is_empty() {
             println!("{}", "🚨 [ALERT: RUNAWAY SINGLE-CORE LOOP DETECTED]".red().bold());
             for alert in &snapshot.rogue_alerts {
+                let is_tamed = snapshot.tamed_pids.contains(&alert.pid);
+                let tame_badge = if is_tamed {
+                    "[TAMED - 10% CAP ACTIVE]".green().bold()
+                } else if auto_tame {
+                    "[THROTTLING...]".yellow().bold()
+                } else {
+                    "[ACTION REQUIRED]".red().bold()
+                };
+
                 println!(
-                    "  {} Process: {} (PID: {}, PPID: {})",
+                    "  {} Process: {} (PID: {}, PPID: {}) {}",
                     "->".red(),
                     alert.process_name.yellow().bold(),
                     alert.pid,
-                    alert.ppid
+                    alert.ppid,
+                    tame_badge
                 );
                 println!(
                     "     Single-Core Saturation: {} (Total CPU: {:.1}%)",
@@ -127,7 +187,11 @@ async fn main() -> anyhow::Result<()> {
         );
 
         for p in snapshot.top_processes {
-            let sat_str = if p.top_thread_saturation_pct >= 80.0 {
+            let is_tamed = snapshot.tamed_pids.contains(&p.pid);
+
+            let sat_str = if is_tamed {
+                format!("{:.1}% [TAMED]", p.top_thread_saturation_pct).green().bold()
+            } else if p.top_thread_saturation_pct >= 80.0 {
                 format!("{:.1}% (HIGH!)", p.top_thread_saturation_pct).red().bold()
             } else if p.top_thread_saturation_pct >= 40.0 {
                 format!("{:.1}%", p.top_thread_saturation_pct).yellow()
@@ -135,7 +199,9 @@ async fn main() -> anyhow::Result<()> {
                 format!("{:.1}%", p.top_thread_saturation_pct).normal()
             };
 
-            let status_str = if p.is_orphan {
+            let status_str = if is_tamed {
+                "Tamed".green()
+            } else if p.is_orphan {
                 "Orphan".red()
             } else {
                 "Normal".bright_black()
