@@ -26,31 +26,33 @@
 
 ---
 
-## Phase 0: Architecture & Foundation (Current)
+## Phase 0: Architecture & Foundation (Completed)
 * [x] Formulate Product Requirements Document (`PRD.md`)
 * [x] Design System Architecture & Win32 Integration (`ARCHITECTURE.md`)
 * [x] Define Process Safety Rules & Whitelist Specifications (`SAFETY_RULES.md`)
 * [x] Select Technology Stack: Rust + Tauri v2 (`TECH_STACK.md`)
-* [ ] Initialize Git repository and project scaffolding
+* [x] Initialize Git repository and project scaffolding
 
 ---
 
-## Phase 1: Core Engine & Telemetry POC (CLI Milestone)
+## Phase 1: Core Engine & Telemetry POC (Completed)
 **Goal:** A standalone, low-overhead CLI daemon that monitors thermals and reliably flags runaway single-core loops without crashing.
 
-* [ ] **Thermal Provider:**
+* [x] **Thermal Provider:**
   * Implement WMI / ACPI temperature queries for CPU package.
   * Implement NVIDIA NVML query for discrete GPU temperature and power draw.
-* [ ] **Process & Thread Sampler:**
-  * Implement `NtQuerySystemInformation` to capture process and thread kernel/user time deltas.
-  * Calculate normalized single-core saturation percentage ($>85\%$ threshold).
-* [ ] **Orphan & Loop Heuristic:**
-  * Track thread CPU saturation history over a rolling window (30s – 60s).
-  * Validate parent process alive status (orphan detection).
-* [ ] **Safety Core v1:**
+  * Detect AC / Battery charging state.
+* [x] **Process & Thread Sampler:**
+  * Implement high-performance Win32 Toolhelp snapshots to capture process and thread kernel/user time deltas.
+  * Calculate normalized single-core saturation percentage ($>85\%$ threshold) alongside total machine CPU %.
+* [x] **Orphan & Loop Heuristic:**
+  * Track thread CPU saturation history over a rolling window.
+  * Validate parent process alive status (orphan/zombie detection).
+* [x] **Safety Core v1:**
   * Implement hardcoded whitelist (critical Windows system binaries, antivirus, display drivers).
-* [ ] **CLI Output:**
-  * Output formatted real-time status: CPU Temp, GPU Temp, Active High-Load Threads, Rogue Alerts.
+* [x] **CLI Output & Tests:**
+  * Output formatted real-time status: CPU Temp, GPU Temp, Power State, Top Processes, Single-Core Saturation, and Rogue Alerts.
+  * Automated unit tests for loop detection, whitelisting, and safety immunity.
 
 ---
 
