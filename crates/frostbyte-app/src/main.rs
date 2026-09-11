@@ -67,8 +67,12 @@ fn revert_all(state: State<'_, AppState>) -> usize {
 }
 
 fn main() {
-    let watchdog = Arc::new(Mutex::new(Watchdog::with_settings(80.0, 3, 2, false)));
-    let latest_snapshot = Arc::new(Mutex::new(None));
+    let mut initial_wd = Watchdog::with_settings(80.0, 3, 2, false);
+    // Populate the snapshot immediately with real system data on startup
+    let initial_snapshot = initial_wd.tick();
+
+    let watchdog = Arc::new(Mutex::new(initial_wd));
+    let latest_snapshot = Arc::new(Mutex::new(Some(initial_snapshot)));
 
     let watchdog_clone = Arc::clone(&watchdog);
     let snapshot_clone = Arc::clone(&latest_snapshot);
@@ -144,20 +148,25 @@ fn main() {
                 })
                 .build(app)?;
 
-            // Background Telemetry Loop (every 2 seconds)
+            // Background Telemetry Loop (every 1.5 seconds)
             let handle_for_loop = app_handle.clone();
-            std::thread::spawn(move || loop {
-                let snapshot = {
-                    let mut wd = watchdog_clone.lock();
-                    wd.tick()
-                };
+            std::thread::spawn(move || {
+                // Short initial delay so the second tick has an accurate CPU delta
+                std::thread::sleep(Duration::from_millis(600));
 
-                *snapshot_clone.lock() = Some(snapshot.clone());
+                loop {
+                    let snapshot = {
+                        let mut wd = watchdog_clone.lock();
+                        wd.tick()
+                    };
 
-                // Emit event to frontend if window is open
-                let _ = handle_for_loop.emit("snapshot-update", &snapshot);
+                    *snapshot_clone.lock() = Some(snapshot.clone());
 
-                std::thread::sleep(Duration::from_secs(2));
+                    // Emit event to frontend if window is open
+                    let _ = handle_for_loop.emit("snapshot-update", &snapshot);
+
+                    std::thread::sleep(Duration::from_millis(1500));
+                }
             });
 
             Ok(())

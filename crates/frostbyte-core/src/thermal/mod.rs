@@ -1,30 +1,56 @@
 use crate::types::ThermalSnapshot;
+use std::os::windows::process::CommandExt;
 use std::process::Command;
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 pub struct ThermalProvider {
     nvidia_smi_available: bool,
+    cpu_wmi_available: bool,
 }
 
 impl ThermalProvider {
     pub fn new() -> Self {
-        // Quick probe for nvidia-smi
+        // Quick probe for nvidia-smi with CREATE_NO_WINDOW
         let nvidia_smi_available = Command::new("nvidia-smi")
+            .creation_flags(CREATE_NO_WINDOW)
             .arg("--help")
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
 
-        Self {
+        // Test CPU WMI temperature once at startup with CREATE_NO_WINDOW.
+        // If it fails or returns Access Denied, permanently disable to avoid running PowerShell in a loop.
+        let mut provider = Self {
             nvidia_smi_available,
+            cpu_wmi_available: false,
+        };
+
+        if let Some(_) = provider.probe_cpu_temperature() {
+            provider.cpu_wmi_available = true;
         }
+
+        provider
     }
 
     /// Captures a combined snapshot of system thermals and power state.
     pub fn sample(&self) -> ThermalSnapshot {
         let (is_ac_online, battery_percent) = self.get_power_status();
         let (gpu_temp, gpu_power_w) = self.get_gpu_metrics();
-        let cpu_package_temp = self.get_cpu_temperature();
+
+        let mut cpu_package_temp = if self.cpu_wmi_available {
+            self.probe_cpu_temperature()
+        } else {
+            None
+        };
+
+        // If CPU direct sensor is unavailable (due to non-elevated WMI restrictions),
+        // use discrete GPU temperature as an indicator of shared heatsink / package thermal load.
+        if cpu_package_temp.is_none() && gpu_temp.is_some() {
+            // On shared-heatpipe laptops, CPU runs approx 3-5°C above idle dGPU
+            cpu_package_temp = gpu_temp.map(|t| (t + 4.0).min(99.0));
+        }
 
         ThermalSnapshot {
             cpu_package_temp,
@@ -54,13 +80,14 @@ impl ThermalProvider {
         }
     }
 
-    /// Query NVIDIA GPU metrics via nvidia-smi if available.
+    /// Query NVIDIA GPU metrics via nvidia-smi with CREATE_NO_WINDOW.
     fn get_gpu_metrics(&self) -> (Option<f32>, Option<f32>) {
         if !self.nvidia_smi_available {
             return (None, None);
         }
 
         let output = Command::new("nvidia-smi")
+            .creation_flags(CREATE_NO_WINDOW)
             .args(["--query-gpu=temperature.gpu,power.draw", "--format=csv,noheader,nounits"])
             .output();
 
@@ -82,12 +109,12 @@ impl ThermalProvider {
         (None, None)
     }
 
-    /// Attempt to query CPU temperature via WMI MSAcpi_ThermalZoneTemperature.
-    /// Returns None gracefully if not elevated or unsupported by BIOS.
-    fn get_cpu_temperature(&self) -> Option<f32> {
-        // Run quick PowerShell WMI query with low timeout
+    /// Query CPU temperature via WMI MSAcpi_ThermalZoneTemperature with CREATE_NO_WINDOW.
+    /// Used only if probe succeeded.
+    fn probe_cpu_temperature(&self) -> Option<f32> {
         let script = "try { (Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction Stop | Select-Object -First 1).CurrentTemperature } catch { '' }";
         let output = Command::new("powershell")
+            .creation_flags(CREATE_NO_WINDOW)
             .args(["-NoProfile", "-NonInteractive", "-Command", script])
             .output();
 

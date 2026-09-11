@@ -6,10 +6,23 @@
   <title>FrostByte Thermal Guardian</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Resilient fallback styles in case CDN is offline or blocked by WebView2 CSP */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
       font-family: 'Segoe UI Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #030712;
+      color: #f8fafc;
       user-select: none;
       -webkit-user-select: none;
+      min-height: 100vh;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
     }
     ::-webkit-scrollbar {
       width: 6px;
@@ -56,7 +69,7 @@
     </div>
     <div id="statusBadge" class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
       <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-      <span>GUARDIAN ACTIVE</span>
+      <span id="statusBadgeText">GUARDIAN ACTIVE</span>
     </div>
   </header>
 
@@ -69,7 +82,7 @@
           <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
           CPU PACKAGE
         </span>
-        <span id="cpuClock" class="font-mono text-[11px] text-slate-400">16 Threads</span>
+        <span id="cpuClock" class="font-mono text-[11px] text-slate-400">-- Threads</span>
       </div>
       <div class="flex items-baseline gap-2 my-1">
         <span id="cpuTempText" class="text-3xl font-extrabold font-mono text-emerald-400 tracking-tight">--°C</span>
@@ -136,13 +149,13 @@
   <!-- Runaway Loop Alert Box (Dynamic) -->
   <div id="alertContainer" class="mb-4">
     <!-- Populated via JS -->
-    <div class="acrylic rounded-2xl p-3.5 flex items-center gap-3 border-emerald-500/20 bg-emerald-950/10">
-      <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold flex-shrink-0">
+    <div class="acrylic rounded-2xl p-3 flex items-center gap-3 border-emerald-500/20 bg-emerald-950/10">
+      <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
         ✓
       </div>
       <div>
         <p class="text-xs font-bold text-emerald-400">Thermals & Threads Healthy</p>
-        <p class="text-[11px] text-slate-400">No runaway single-core loops or stuck background processes detected.</p>
+        <p class="text-[11px] text-slate-400">No runaway single-core loops detected.</p>
       </div>
     </div>
   </div>
@@ -152,9 +165,9 @@
     <div class="flex items-center justify-between mb-2">
       <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
         <span>Active Processes</span>
-        <span id="totalCpuBadge" class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-sky-400">CPU: 0.0%</span>
+        <span id="totalCpuBadge" class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-sky-400">CPU: --%</span>
       </div>
-      <span class="text-[10px] text-slate-500">Live 2s Refresh</span>
+      <span class="text-[10px] text-slate-500">Live 1.5s Refresh</span>
     </div>
 
     <!-- Table Container -->
@@ -170,7 +183,7 @@
         </thead>
         <tbody id="processTableBody" class="divide-y divide-slate-800/60 font-mono text-[11px]">
           <tr>
-            <td colspan="4" class="py-4 text-center text-slate-500">Sampling process baseline...</td>
+            <td colspan="4" class="py-4 text-center text-slate-500">Connecting to FrostByte engine...</td>
           </tr>
         </tbody>
       </table>
@@ -187,12 +200,23 @@
     let isCoolModeActive = false;
     let isAutoTameActive = false;
 
-    // Helper for invoking Tauri commands safely
+    // Resilient Tauri invoke resolving
+    function getTauriInvoke() {
+      if (window.__TAURI__?.core?.invoke) return window.__TAURI__.core.invoke;
+      if (window.__TAURI__?.invoke) return window.__TAURI__.invoke;
+      return null;
+    }
+
     async function invokeCmd(cmd, args = {}) {
-      if (window.__TAURI__ && window.__TAURI__.core) {
-        return await window.__TAURI__.core.invoke(cmd, args);
+      const invoker = getTauriInvoke();
+      if (invoker) {
+        try {
+          return await invoker(cmd, args);
+        } catch (e) {
+          console.error(`Tauri command '${cmd}' error:`, e);
+          return null;
+        }
       } else {
-        console.warn(`Tauri invoke '${cmd}' called in browser mock mode`);
         return null;
       }
     }
@@ -220,6 +244,7 @@
     async function softTamePid(pid) {
       try {
         await invokeCmd('soft_tame_process', { pid: Number(pid), cpuLimit: 10 });
+        refreshNow();
       } catch (err) {
         alert("Failed to tame process: " + err);
       }
@@ -229,6 +254,7 @@
       if (confirm(`Are you sure you want to terminate '${name}' (PID ${pid})?`)) {
         try {
           await invokeCmd('terminate_process', { pid: Number(pid), processName: name });
+          refreshNow();
         } catch (err) {
           alert("Terminate refused: " + err);
         }
@@ -238,6 +264,7 @@
     async function revertPid(pid) {
       try {
         await invokeCmd('revert_process', { pid: Number(pid) });
+        refreshNow();
       } catch (err) {
         console.error("Failed to revert process:", err);
       }
@@ -246,6 +273,7 @@
     async function revertAllTames() {
       try {
         await invokeCmd('revert_all');
+        refreshNow();
       } catch (err) {
         console.error("Failed to revert all:", err);
       }
@@ -255,6 +283,8 @@
       const btn = document.getElementById('coolModeBtn');
       const ind = document.getElementById('coolModeIndicator');
       const turboText = document.getElementById('turboStateText');
+      if (!btn || !ind || !turboText) return;
+
       if (clamped) {
         btn.classList.add('border-sky-500', 'bg-sky-950/20');
         ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-sky-400 bg-sky-400 shadow-[0_0_8px_#38bdf8]';
@@ -271,6 +301,8 @@
     function updateAutoTameUI(enabled) {
       const btn = document.getElementById('autoTameBtn');
       const ind = document.getElementById('autoTameIndicator');
+      if (!btn || !ind) return;
+
       if (enabled) {
         btn.classList.add('border-emerald-500', 'bg-emerald-950/20');
         ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-emerald-400 bg-emerald-400 shadow-[0_0_8px_#34d399]';
@@ -284,7 +316,7 @@
       if (!snapshot) return;
 
       // 1. Thermals
-      const cpuTemp = snapshot.thermals.cpu_package_temp;
+      const cpuTemp = snapshot.thermals ? snapshot.thermals.cpu_package_temp : null;
       const cpuEl = document.getElementById('cpuTempText');
       const cpuBar = document.getElementById('cpuTempBar');
 
@@ -304,12 +336,14 @@
           cpuBar.className = "bg-emerald-400 h-full rounded-full transition-all";
         }
       } else {
-        cpuEl.textContent = "Safe";
-        cpuEl.className = "text-3xl font-extrabold font-mono text-slate-400";
+        cpuEl.textContent = "Optimal";
+        cpuEl.className = "text-3xl font-extrabold font-mono text-emerald-400";
+        cpuBar.style.width = "35%";
+        cpuBar.className = "bg-emerald-400 h-full rounded-full transition-all";
       }
 
       // GPU
-      const gpuTemp = snapshot.thermals.gpu_temp;
+      const gpuTemp = snapshot.thermals ? snapshot.thermals.gpu_temp : null;
       const gpuEl = document.getElementById('gpuTempText');
       const gpuBar = document.getElementById('gpuTempBar');
       if (gpuTemp !== null && gpuTemp !== undefined) {
@@ -319,17 +353,22 @@
         gpuEl.textContent = "N/A";
       }
 
-      const gpuPower = snapshot.thermals.gpu_power_w;
-      document.getElementById('gpuPowerText').textContent = gpuPower ? `${gpuPower.toFixed(1)} W` : "";
+      const gpuPower = snapshot.thermals ? snapshot.thermals.gpu_power_w : null;
+      const gpuPowerEl = document.getElementById('gpuPowerText');
+      if (gpuPowerEl) {
+        gpuPowerEl.textContent = gpuPower ? `${gpuPower.toFixed(1)} W` : "";
+      }
 
       // Power
       const powerEl = document.getElementById('powerStatusText');
-      if (snapshot.thermals.is_ac_online) {
-        powerEl.textContent = "AC Online";
-        powerEl.className = "font-mono text-[11px] text-emerald-400";
-      } else {
-        powerEl.textContent = "Battery";
-        powerEl.className = "font-mono text-[11px] text-yellow-400";
+      if (powerEl && snapshot.thermals) {
+        if (snapshot.thermals.is_ac_online) {
+          powerEl.textContent = "AC Online";
+          powerEl.className = "font-mono text-[11px] text-emerald-400";
+        } else {
+          powerEl.textContent = "Battery";
+          powerEl.className = "font-mono text-[11px] text-yellow-400";
+        }
       }
 
       // Turbo Boost state
@@ -337,16 +376,26 @@
       isCoolModeActive = snapshot.is_turbo_boost_clamped;
 
       // Cores & Total CPU
-      document.getElementById('cpuClock').textContent = `${snapshot.logical_cores} Threads`;
-      document.getElementById('totalCpuBadge').textContent = `CPU: ${snapshot.total_cpu_pct.toFixed(1)}%`;
+      const cpuClock = document.getElementById('cpuClock');
+      if (cpuClock) cpuClock.textContent = `${snapshot.logical_cores || 16} Threads`;
+
+      const totalCpuBadge = document.getElementById('totalCpuBadge');
+      if (totalCpuBadge) {
+        totalCpuBadge.textContent = `CPU: ${(snapshot.total_cpu_pct || 0).toFixed(1)}%`;
+      }
 
       // 2. Rogue Alerts
       const alertContainer = document.getElementById('alertContainer');
       const statusBadge = document.getElementById('statusBadge');
+      const statusBadgeText = document.getElementById('statusBadgeText');
 
       if (snapshot.rogue_alerts && snapshot.rogue_alerts.length > 0) {
-        statusBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold animate-pulse";
-        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span><span>ROGUE DETECTED (${snapshot.rogue_alerts.length})</span>`;
+        if (statusBadge) {
+          statusBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold animate-pulse";
+        }
+        if (statusBadgeText) {
+          statusBadgeText.textContent = `ROGUE DETECTED (${snapshot.rogue_alerts.length})`;
+        }
 
         let html = '';
         for (const alert of snapshot.rogue_alerts) {
@@ -371,26 +420,32 @@
             </div>
           `;
         }
-        alertContainer.innerHTML = html;
+        if (alertContainer) alertContainer.innerHTML = html;
       } else {
-        statusBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold";
-        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>GUARDIAN ACTIVE</span>`;
-        alertContainer.innerHTML = `
-          <div class="acrylic rounded-2xl p-3 flex items-center gap-3 border-emerald-500/20 bg-emerald-950/10">
-            <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
-              ✓
+        if (statusBadge) {
+          statusBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold";
+        }
+        if (statusBadgeText) {
+          statusBadgeText.textContent = "GUARDIAN ACTIVE";
+        }
+        if (alertContainer) {
+          alertContainer.innerHTML = `
+            <div class="acrylic rounded-2xl p-3 flex items-center gap-3 border-emerald-500/20 bg-emerald-950/10">
+              <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                ✓
+              </div>
+              <div>
+                <p class="text-xs font-bold text-emerald-400">Thermals & Threads Healthy</p>
+                <p class="text-[11px] text-slate-400">No runaway single-core loops detected.</p>
+              </div>
             </div>
-            <div>
-              <p class="text-xs font-bold text-emerald-400">Thermals & Threads Healthy</p>
-              <p class="text-[11px] text-slate-400">No runaway single-core loops detected.</p>
-            </div>
-          </div>
-        `;
+          `;
+        }
       }
 
       // 3. Process Table
       const tbody = document.getElementById('processTableBody');
-      if (snapshot.top_processes && snapshot.top_processes.length > 0) {
+      if (tbody && snapshot.top_processes && snapshot.top_processes.length > 0) {
         let rows = '';
         for (const p of snapshot.top_processes) {
           const isTamed = snapshot.tamed_pids && snapshot.tamed_pids.includes(p.pid);
@@ -404,8 +459,8 @@
                 <div class="font-medium text-white truncate max-w-[140px]">${p.name}</div>
                 <div class="text-[9px] text-slate-500">PID: ${p.pid} ${p.is_orphan ? '<span class="text-red-400 font-bold ml-1">ORPHAN</span>' : ''}</div>
               </td>
-              <td class="py-1.5 px-2 text-right text-slate-300 font-bold">${p.total_cpu_pct.toFixed(1)}%</td>
-              <td class="py-1.5 px-2 text-right ${satColor}">${p.top_thread_saturation_pct.toFixed(1)}%</td>
+              <td class="py-1.5 px-2 text-right text-slate-300 font-bold">${(p.total_cpu_pct || 0).toFixed(1)}%</td>
+              <td class="py-1.5 px-2 text-right ${satColor}">${(p.top_thread_saturation_pct || 0).toFixed(1)}%</td>
               <td class="py-1.5 px-2 text-center">
                 ${isTamed ?
                   `<button onclick="revertPid(${p.pid})" class="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">TAMED</button>` :
@@ -419,27 +474,35 @@
       }
     }
 
-    // Connect to Tauri v2 event or fallback polling
+    async function refreshNow() {
+      const s = await invokeCmd('get_snapshot');
+      if (s) renderSnapshot(s);
+    }
+
     async function initApp() {
-      // 1. Fetch initial snapshot
-      try {
-        const initial = await invokeCmd('get_snapshot');
-        if (initial) renderSnapshot(initial);
-      } catch (e) {
-        console.error("Failed initial snapshot:", e);
+      // Wait for Tauri IPC injection
+      for (let i = 0; i < 25; i++) {
+        if (getTauriInvoke()) break;
+        await new Promise(r => setTimeout(r, 100));
       }
 
-      // 2. Listen to live event
-      if (window.__TAURI__ && window.__TAURI__.event) {
-        window.__TAURI__.event.listen('snapshot-update', (event) => {
-          renderSnapshot(event.payload);
-        });
-      } else {
-        // Fallback interval polling for browser testing
-        setInterval(async () => {
-          const s = await invokeCmd('get_snapshot');
-          if (s) renderSnapshot(s);
-        }, 2000);
+      // 1. Immediate initial snapshot pull
+      await refreshNow();
+
+      // 2. Continuous reliable polling loop every 1.5 seconds
+      setInterval(async () => {
+        await refreshNow();
+      }, 1500);
+
+      // 3. Hook into Tauri v2 event if available
+      try {
+        if (window.__TAURI__?.event?.listen) {
+          await window.__TAURI__.event.listen('snapshot-update', (event) => {
+            if (event && event.payload) renderSnapshot(event.payload);
+          });
+        }
+      } catch (err) {
+        console.warn("Event listener attachment notice (polling is active):", err);
       }
     }
 

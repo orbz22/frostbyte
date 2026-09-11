@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
+use std::os::windows::process::CommandExt;
 use std::process::Command;
 
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 const SUB_PROCESSOR_GUID: &str = "54533251-82be-4824-96c1-47b60b740d00";
 const PROCTHROTTLEMAX_GUID: &str = "bc5038f7-23e0-4960-96da-33abaf5935ec";
 
@@ -40,6 +42,7 @@ impl PowerGovernor {
 
         // 1. Write value for AC power
         let write_output = Command::new("powercfg")
+            .creation_flags(CREATE_NO_WINDOW)
             .args([
                 "/setacvalueindex",
                 "SCHEME_CURRENT",
@@ -57,6 +60,7 @@ impl PowerGovernor {
 
         // 2. Activate scheme change
         let activate_output = Command::new("powercfg")
+            .creation_flags(CREATE_NO_WINDOW)
             .args(["/setactive", "SCHEME_CURRENT"])
             .output()
             .context("Failed to execute powercfg /setactive")?;
