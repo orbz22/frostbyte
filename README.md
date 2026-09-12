@@ -79,7 +79,7 @@ FrostByte runs as a native background tray process:
 
 ```powershell
 # Clone the repository
-git clone https://github.com/raiha/frostbyte.git
+git clone https://github.com/orbz22/frostbyte.git
 cd frostbyte
 
 # Run the desktop application

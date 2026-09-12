@@ -5,7 +5,7 @@ DefaultLocale: en-US
 Publisher: FrostByte Contributors
 PackageName: FrostByte
 License: MIT
-LicenseUrl: https://github.com/your-username/frostbyte/blob/main/LICENSE
+LicenseUrl: https://github.com/orbz22/frostbyte/blob/main/LICENSE
 ShortDescription: Smart thermal guardian and runaway process watchdog for Windows.
 Description: FrostByte automatically detects single-core runaway loops that cause high CPU temperatures (90°C+) and fan noise, softly taming them with Windows Job Objects or clamping Turbo Boost to 99%.
 Moniker: frostbyte
