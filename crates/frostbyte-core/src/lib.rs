@@ -23,7 +23,12 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 fn detect_os_version() -> String {
     let output = Command::new("reg")
         .creation_flags(CREATE_NO_WINDOW)
-        .args(["query", r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "/v", "CurrentBuild"])
+        .args([
+            "query",
+            r"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+            "/v",
+            "CurrentBuild",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -31,7 +36,11 @@ fn detect_os_version() -> String {
             let text = String::from_utf8_lossy(&out.stdout);
             if let Some(build_str) = text.split_whitespace().last() {
                 if let Ok(build_num) = build_str.parse::<u32>() {
-                    let win_name = if build_num >= 22000 { "Windows 11" } else { "Windows 10" };
+                    let win_name = if build_num >= 22000 {
+                        "Windows 11"
+                    } else {
+                        "Windows 10"
+                    };
                     return format!("{} (Build {}) x64", win_name, build_num);
                 }
             }
@@ -122,12 +131,16 @@ impl Watchdog {
         let rogue_alerts = self.heuristics.evaluate(&processes);
 
         // Evaluate smart thermal power governor
-        let _ = self.governor.evaluate_thermals(thermals.cpu_package_temp, thermals.is_ac_online);
+        let _ = self
+            .governor
+            .evaluate_thermals(thermals.cpu_package_temp, thermals.is_ac_online);
 
         // If auto-tame is active, apply Job Object rate limiting to newly flagged rogue processes
         if self.auto_tame_enabled {
             for alert in &rogue_alerts {
-                if !self.mitigation.is_tamed(alert.pid) && !self.safety.is_immune(&alert.process_name) {
+                if !self.mitigation.is_tamed(alert.pid)
+                    && !self.safety.is_immune(&alert.process_name)
+                {
                     let _ = self.mitigation.soft_tame(alert.pid, 10);
                 }
             }

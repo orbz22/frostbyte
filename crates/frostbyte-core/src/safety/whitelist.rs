@@ -22,14 +22,12 @@ const HARDCODED_IMMUNE_PROCESSES: &[&str] = &[
     "fontdrvhost.exe",
     "audiodg.exe",
     "svchost.exe",
-
     // Windows Defender & Security
     "msmpeng.exe",
     "nissrv.exe",
     "securityhealthservice.exe",
     "securityhealthsystray.exe",
     "smartscreen.exe",
-
     // Hardware Display & Audio Drivers
     "nvcontainer.exe",
     "nvdisplay.container.exe",
@@ -39,7 +37,6 @@ const HARDCODED_IMMUNE_PROCESSES: &[&str] = &[
     "igfxcuiservice.exe",
     "igfxem.exe",
     "rtkaudioservice64.exe",
-
     // FrostByte itself
     "frostbyte.exe",
     "frostbyte-cli.exe",
@@ -74,14 +71,19 @@ impl SafetyEngine {
 
         // 1. Check hardcoded immune list
         for immune in HARDCODED_IMMUNE_PROCESSES {
-            if trimmed == *immune || trimmed.trim_end_matches(".exe") == immune.trim_end_matches(".exe") {
+            if trimmed == *immune
+                || trimmed.trim_end_matches(".exe") == immune.trim_end_matches(".exe")
+            {
                 return true;
             }
         }
 
         // 2. Check user-defined custom whitelist
         if self.custom_whitelist.contains(trimmed)
-            || self.custom_whitelist.contains(trimmed.trim_end_matches(".exe")) {
+            || self
+                .custom_whitelist
+                .contains(trimmed.trim_end_matches(".exe"))
+        {
             return true;
         }
 

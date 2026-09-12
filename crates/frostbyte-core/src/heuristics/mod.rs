@@ -18,7 +18,12 @@ pub struct HeuristicEngine {
 }
 
 impl HeuristicEngine {
-    pub fn new(safety: SafetyEngine, saturation_threshold: f32, min_consecutive_ticks: u32, tick_interval_secs: u32) -> Self {
+    pub fn new(
+        safety: SafetyEngine,
+        saturation_threshold: f32,
+        min_consecutive_ticks: u32,
+        tick_interval_secs: u32,
+    ) -> Self {
         Self {
             tracked_threads: HashMap::new(),
             safety,
@@ -81,7 +86,8 @@ impl HeuristicEngine {
         }
 
         // Clean up threads that have calmed down
-        self.tracked_threads.retain(|key, _| active_keys.contains(key));
+        self.tracked_threads
+            .retain(|key, _| active_keys.contains(key));
 
         alerts
     }
@@ -120,16 +126,20 @@ mod tests {
         };
 
         // Tick 1
-        let alerts = engine.evaluate(&[rogue_proc.clone()]);
+        let alerts = engine.evaluate(std::slice::from_ref(&rogue_proc));
         assert!(alerts.is_empty(), "Should not alert on first tick");
 
         // Tick 2
-        let alerts = engine.evaluate(&[rogue_proc.clone()]);
+        let alerts = engine.evaluate(std::slice::from_ref(&rogue_proc));
         assert!(alerts.is_empty(), "Should not alert on second tick");
 
         // Tick 3: reaches threshold
-        let alerts = engine.evaluate(&[rogue_proc.clone()]);
-        assert_eq!(alerts.len(), 1, "Should alert after 3 consecutive high-load ticks");
+        let alerts = engine.evaluate(std::slice::from_ref(&rogue_proc));
+        assert_eq!(
+            alerts.len(),
+            1,
+            "Should alert after 3 consecutive high-load ticks"
+        );
         assert_eq!(alerts[0].pid, 9999);
         assert_eq!(alerts[0].process_name, "stuck_worker.exe");
         assert!(alerts[0].single_core_saturation_pct >= 98.0);
@@ -151,6 +161,9 @@ mod tests {
         };
 
         let alerts = engine.evaluate(&[system_proc]);
-        assert!(alerts.is_empty(), "Whitelisted process explorer.exe must never trigger an alert");
+        assert!(
+            alerts.is_empty(),
+            "Whitelisted process explorer.exe must never trigger an alert"
+        );
     }
 }

@@ -2,14 +2,13 @@ use anyhow::{Context, Result};
 use std::collections::HashMap;
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::System::JobObjects::{
-    AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
-    JobObjectCpuRateControlInformation, JOBOBJECT_CPU_RATE_CONTROL_INFORMATION,
+    AssignProcessToJobObject, CreateJobObjectW, JobObjectCpuRateControlInformation,
+    SetInformationJobObject, JOBOBJECT_CPU_RATE_CONTROL_INFORMATION,
     JOBOBJECT_CPU_RATE_CONTROL_INFORMATION_0, JOB_OBJECT_CPU_RATE_CONTROL_ENABLE,
     JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
 };
 use windows::Win32::System::Threading::{
-    OpenProcess, SetPriorityClass, IDLE_PRIORITY_CLASS,
-    PROCESS_SET_INFORMATION, PROCESS_SET_QUOTA,
+    OpenProcess, SetPriorityClass, IDLE_PRIORITY_CLASS, PROCESS_SET_INFORMATION, PROCESS_SET_QUOTA,
 };
 
 #[derive(Debug)]
@@ -40,12 +39,13 @@ impl JobRateLimiter {
 
         unsafe {
             // 1. Create anonymous Job Object
-            let job_handle = CreateJobObjectW(None, None)
-                .context("Failed to create Windows Job Object")?;
+            let job_handle =
+                CreateJobObjectW(None, None).context("Failed to create Windows Job Object")?;
 
             // 2. Configure CPU rate control
             let mut info = JOBOBJECT_CPU_RATE_CONTROL_INFORMATION {
-                ControlFlags: JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
+                ControlFlags: JOB_OBJECT_CPU_RATE_CONTROL_ENABLE
+                    | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
                 Anonymous: JOBOBJECT_CPU_RATE_CONTROL_INFORMATION_0 {
                     CpuRate: rate_in_basis_points,
                 },
@@ -60,24 +60,36 @@ impl JobRateLimiter {
 
             if let Err(e) = set_res {
                 let _ = CloseHandle(job_handle);
-                return Err(anyhow::anyhow!("Failed to set job CPU rate control: {:?}", e));
+                return Err(anyhow::anyhow!(
+                    "Failed to set job CPU rate control: {:?}",
+                    e
+                ));
             }
 
             // 3. Open target process
-            let proc_handle = match OpenProcess(PROCESS_SET_QUOTA | PROCESS_SET_INFORMATION, false, pid) {
-                Ok(h) => h,
-                Err(e) => {
-                    let _ = CloseHandle(job_handle);
-                    return Err(anyhow::anyhow!("Failed to open process PID {} for quota/information: {:?}", pid, e));
-                }
-            };
+            let proc_handle =
+                match OpenProcess(PROCESS_SET_QUOTA | PROCESS_SET_INFORMATION, false, pid) {
+                    Ok(h) => h,
+                    Err(e) => {
+                        let _ = CloseHandle(job_handle);
+                        return Err(anyhow::anyhow!(
+                            "Failed to open process PID {} for quota/information: {:?}",
+                            pid,
+                            e
+                        ));
+                    }
+                };
 
             // 4. Assign process to Job Object
             let assign_res = AssignProcessToJobObject(job_handle, proc_handle);
             if let Err(e) = assign_res {
                 let _ = CloseHandle(proc_handle);
                 let _ = CloseHandle(job_handle);
-                return Err(anyhow::anyhow!("Failed to assign PID {} to Job Object: {:?}", pid, e));
+                return Err(anyhow::anyhow!(
+                    "Failed to assign PID {} to Job Object: {:?}",
+                    pid,
+                    e
+                ));
             }
 
             // 5. Lower priority to IDLE
@@ -141,4 +153,3 @@ impl Default for JobRateLimiter {
 // Windows kernel handles (such as Job Object handles) are thread-safe and can be managed across threads.
 unsafe impl Send for JobRateLimiter {}
 unsafe impl Sync for JobRateLimiter {}
-

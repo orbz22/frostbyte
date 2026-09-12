@@ -9,7 +9,12 @@ async fn main() -> anyhow::Result<()> {
 
     // 1. One-off CLI commands
     if args.iter().any(|a| a == "--cool") {
-        println!("{}", "❄️ FrostByte: Activating Instant Cool Down mode (clamping Turbo Boost to 99%)...".cyan().bold());
+        println!(
+            "{}",
+            "❄️ FrostByte: Activating Instant Cool Down mode (clamping Turbo Boost to 99%)..."
+                .cyan()
+                .bold()
+        );
         let mut watchdog = Watchdog::new();
         watchdog.set_turbo_boost(false)?;
         println!("{}", "✅ Success: Maximum Processor State set to 99%. Turbo Boost disabled. Thermals will drop shortly.".green());
@@ -17,39 +22,85 @@ async fn main() -> anyhow::Result<()> {
     }
 
     if args.iter().any(|a| a == "--boost-on") {
-        println!("{}", "⚡ FrostByte: Restoring normal Turbo Boost mode (100%)...".yellow().bold());
+        println!(
+            "{}",
+            "⚡ FrostByte: Restoring normal Turbo Boost mode (100%)..."
+                .yellow()
+                .bold()
+        );
         let mut watchdog = Watchdog::new();
         watchdog.set_turbo_boost(true)?;
-        println!("{}", "✅ Success: Maximum Processor State restored to 100%. Full boost enabled.".green());
+        println!(
+            "{}",
+            "✅ Success: Maximum Processor State restored to 100%. Full boost enabled.".green()
+        );
         return Ok(());
     }
 
     if let Some(idx) = args.iter().position(|a| a == "--tame") {
         if let Some(pid_str) = args.get(idx + 1) {
             let pid: u32 = pid_str.parse().expect("Invalid PID");
-            println!("{}", format!("🛡️ FrostByte: Soft-taming PID {} with 10% CPU hard cap...", pid).cyan());
+            println!(
+                "{}",
+                format!(
+                    "🛡️ FrostByte: Soft-taming PID {} with 10% CPU hard cap...",
+                    pid
+                )
+                .cyan()
+            );
             let mut watchdog = Watchdog::new();
             watchdog.soft_tame_process(pid, 10)?;
-            println!("{}", format!("✅ PID {} assigned to Windows Job Object with 10% CPU limit.", pid).green());
+            println!(
+                "{}",
+                format!(
+                    "✅ PID {} assigned to Windows Job Object with 10% CPU limit.",
+                    pid
+                )
+                .green()
+            );
             return Ok(());
         }
     }
 
     let once_mode = args.iter().any(|arg| arg == "--once");
     let auto_tame = args.iter().any(|arg| arg == "--auto-tame");
-    let max_ticks: Option<u64> = args.iter().position(|arg| arg == "--count").and_then(|idx| {
-        args.get(idx + 1).and_then(|val| val.parse().ok())
-    });
+    let max_ticks: Option<u64> = args
+        .iter()
+        .position(|arg| arg == "--count")
+        .and_then(|idx| args.get(idx + 1).and_then(|val| val.parse().ok()));
 
     // Print banner
-    println!("{}", "=======================================================".cyan());
-    println!("{}", "   ❄️  FrostByte — Thermal & Process Watchdog (v0.2.0)   ".cyan().bold());
-    println!("{}", "   Phase 2: Automated Mitigation & Soft-Tame Engine     ".white());
-    println!("{}", "=======================================================".cyan());
+    println!(
+        "{}",
+        "=======================================================".cyan()
+    );
+    println!(
+        "{}",
+        "   ❄️  FrostByte — Thermal & Process Watchdog (v0.2.0)   "
+            .cyan()
+            .bold()
+    );
+    println!(
+        "{}",
+        "   Phase 2: Automated Mitigation & Soft-Tame Engine     ".white()
+    );
+    println!(
+        "{}",
+        "=======================================================".cyan()
+    );
     if auto_tame {
-        println!("{}", "⚡ Mode: AUTO-TAME ACTIVE (Rogue processes will be throttled to 10% CPU)".yellow().bold());
+        println!(
+            "{}",
+            "⚡ Mode: AUTO-TAME ACTIVE (Rogue processes will be throttled to 10% CPU)"
+                .yellow()
+                .bold()
+        );
     } else {
-        println!("{}", "🔍 Mode: Monitoring & Alerting (Run with --auto-tame to enable active mitigation)".bright_black());
+        println!(
+            "{}",
+            "🔍 Mode: Monitoring & Alerting (Run with --auto-tame to enable active mitigation)"
+                .bright_black()
+        );
     }
     println!("Initializing hardware sensors & process watcher...\n");
 
@@ -79,7 +130,11 @@ async fn main() -> anyhow::Result<()> {
             "❄️ FrostByte Guardian Active".cyan().bold(),
             snapshot.timestamp.format("%H:%M:%S").to_string().yellow()
         );
-        println!("{}", "--------------------------------------------------------------------------------".bright_black());
+        println!(
+            "{}",
+            "--------------------------------------------------------------------------------"
+                .bright_black()
+        );
 
         // 1. Hardware & Thermals Section
         let cpu_temp_str = match snapshot.thermals.cpu_package_temp {
@@ -132,11 +187,18 @@ async fn main() -> anyhow::Result<()> {
                 format!("{:?}", snapshot.tamed_pids).green().bold()
             }
         );
-        println!("{}", "--------------------------------------------------------------------------------".bright_black());
+        println!(
+            "{}",
+            "--------------------------------------------------------------------------------"
+                .bright_black()
+        );
 
         // 2. Rogue Alert Banner (If Any)
         if !snapshot.rogue_alerts.is_empty() {
-            println!("{}", "🚨 [ALERT: RUNAWAY SINGLE-CORE LOOP DETECTED]".red().bold());
+            println!(
+                "{}",
+                "🚨 [ALERT: RUNAWAY SINGLE-CORE LOOP DETECTED]".red().bold()
+            );
             for alert in &snapshot.rogue_alerts {
                 let is_tamed = snapshot.tamed_pids.contains(&alert.pid);
                 let tame_badge = if is_tamed {
@@ -157,22 +219,41 @@ async fn main() -> anyhow::Result<()> {
                 );
                 println!(
                     "     Single-Core Saturation: {} (Total CPU: {:.1}%)",
-                    format!("{:.1}%", alert.single_core_saturation_pct).red().bold(),
+                    format!("{:.1}%", alert.single_core_saturation_pct)
+                        .red()
+                        .bold(),
                     alert.total_process_cpu_pct
                 );
                 println!(
                     "     Sustained Duration:     {} seconds",
                     alert.sustained_seconds.to_string().yellow()
                 );
-                println!("     Diagnosis:              {}", alert.reason.bright_yellow());
+                println!(
+                    "     Diagnosis:              {}",
+                    alert.reason.bright_yellow()
+                );
                 if alert.is_orphan {
-                    println!("     Status:                 {}", "ORPHAN PROCESS (Parent is dead)".red().bold());
+                    println!(
+                        "     Status:                 {}",
+                        "ORPHAN PROCESS (Parent is dead)".red().bold()
+                    );
                 }
             }
-            println!("{}", "--------------------------------------------------------------------------------".bright_black());
+            println!(
+                "{}",
+                "--------------------------------------------------------------------------------"
+                    .bright_black()
+            );
         } else {
-            println!("{}", "Status: All processes normal. No runaway single-core loops detected.".green());
-            println!("{}", "--------------------------------------------------------------------------------".bright_black());
+            println!(
+                "{}",
+                "Status: All processes normal. No runaway single-core loops detected.".green()
+            );
+            println!(
+                "{}",
+                "--------------------------------------------------------------------------------"
+                    .bright_black()
+            );
         }
 
         // 3. Top Active Processes Table
@@ -190,9 +271,13 @@ async fn main() -> anyhow::Result<()> {
             let is_tamed = snapshot.tamed_pids.contains(&p.pid);
 
             let sat_str = if is_tamed {
-                format!("{:.1}% [TAMED]", p.top_thread_saturation_pct).green().bold()
+                format!("{:.1}% [TAMED]", p.top_thread_saturation_pct)
+                    .green()
+                    .bold()
             } else if p.top_thread_saturation_pct >= 80.0 {
-                format!("{:.1}% (HIGH!)", p.top_thread_saturation_pct).red().bold()
+                format!("{:.1}% (HIGH!)", p.top_thread_saturation_pct)
+                    .red()
+                    .bold()
             } else if p.top_thread_saturation_pct >= 40.0 {
                 format!("{:.1}%", p.top_thread_saturation_pct).yellow()
             } else {
@@ -218,9 +303,12 @@ async fn main() -> anyhow::Result<()> {
             );
         }
 
-        println!("\nTick: #{} | Refreshing every 2s... (Press Ctrl+C to stop)", tick_counter);
+        println!(
+            "\nTick: #{} | Refreshing every 2s... (Press Ctrl+C to stop)",
+            tick_counter
+        );
 
-        if once_mode || max_ticks.map_or(false, |m| tick_counter >= m) {
+        if once_mode || max_ticks.is_some_and(|m| tick_counter >= m) {
             println!("\nCompleted requested sample ticks. Exiting.");
             break;
         }

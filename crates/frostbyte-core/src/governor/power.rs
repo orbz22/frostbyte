@@ -104,7 +104,11 @@ impl PowerGovernor {
 
     /// Evaluates current temperature and automatically intervenes if necessary.
     /// Returns Some(true) if boost was clamped (cooled), Some(false) if boost was restored, None if unchanged.
-    pub fn evaluate_thermals(&mut self, current_temp: Option<f32>, is_ac_online: bool) -> Option<bool> {
+    pub fn evaluate_thermals(
+        &mut self,
+        current_temp: Option<f32>,
+        is_ac_online: bool,
+    ) -> Option<bool> {
         // If user set Instant Cool to manual mode, do not auto-intervene
         if !self.auto_cool_enabled {
             return None;

@@ -65,7 +65,8 @@ impl ProcessWatcher {
 
         for (pid, ppid, name) in raw_processes {
             // Check if parent process is still alive
-            let is_orphan = ppid > 0 && !active_pids.contains(&ppid) && pid != 4 && name != "smss.exe";
+            let is_orphan =
+                ppid > 0 && !active_pids.contains(&ppid) && pid != 4 && name != "smss.exe";
 
             // Query process CPU times
             if let Some((kernel, user)) = Self::read_process_times(pid) {
@@ -85,19 +86,24 @@ impl ProcessWatcher {
                         total_wall_clock_100ns = total_wall_clock_100ns.max(wall_100ns);
 
                         // Process CPU % normalized to all cores
-                        proc_cpu_pct = ((delta_total as f32) / (wall_100ns as f32 * self.logical_cores as f32)) * 100.0;
+                        proc_cpu_pct = ((delta_total as f32)
+                            / (wall_100ns as f32 * self.logical_cores as f32))
+                            * 100.0;
 
                         // If process is burning significant CPU, inspect its threads for single-core saturation
                         if proc_cpu_pct >= 0.5 {
                             if let Some(tids) = process_threads_map.get(&pid) {
                                 for tid in tids {
-                                    if let Some((t_kernel, t_user)) = Self::read_thread_times(*tid) {
+                                    if let Some((t_kernel, t_user)) = Self::read_thread_times(*tid)
+                                    {
                                         if let Some(prev_t) = self.prev_threads.get(tid) {
                                             let t_delta = (t_kernel.saturating_sub(prev_t.kernel))
                                                 + (t_user.saturating_sub(prev_t.user));
-                                            let t_saturation = ((t_delta as f32) / (wall_100ns as f32)) * 100.0;
+                                            let t_saturation =
+                                                ((t_delta as f32) / (wall_100ns as f32)) * 100.0;
 
-                                            top_thread_saturation = top_thread_saturation.max(t_saturation);
+                                            top_thread_saturation =
+                                                top_thread_saturation.max(t_saturation);
 
                                             inspected_threads.push(ThreadSample {
                                                 thread_id: *tid,
@@ -146,13 +152,17 @@ impl ProcessWatcher {
         }
 
         // Clean up dead processes and threads from memory
-        self.prev_processes.retain(|pid, _| active_pids.contains(pid));
+        self.prev_processes
+            .retain(|pid, _| active_pids.contains(pid));
         let active_tid_set: HashSet<u32> = active_threads.into_iter().map(|(tid, _)| tid).collect();
-        self.prev_threads.retain(|tid, _| active_tid_set.contains(tid));
+        self.prev_threads
+            .retain(|tid, _| active_tid_set.contains(tid));
 
         // Calculate overall system CPU %
         let total_system_cpu_pct = if total_wall_clock_100ns > 0 {
-            ((total_system_delta_100ns as f32) / (total_wall_clock_100ns as f32 * self.logical_cores as f32)) * 100.0
+            ((total_system_delta_100ns as f32)
+                / (total_wall_clock_100ns as f32 * self.logical_cores as f32))
+                * 100.0
         } else {
             0.0
         };
@@ -222,8 +232,10 @@ impl ProcessWatcher {
                 Err(_) => return (list, pids),
             };
 
-            let mut entry = PROCESSENTRY32W::default();
-            entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+            let mut entry = PROCESSENTRY32W {
+                dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+                ..Default::default()
+            };
 
             if Process32FirstW(snapshot, &mut entry).is_ok() {
                 loop {
@@ -258,8 +270,10 @@ impl ProcessWatcher {
                 Err(_) => return list,
             };
 
-            let mut entry = THREADENTRY32::default();
-            entry.dwSize = std::mem::size_of::<THREADENTRY32>() as u32;
+            let mut entry = THREADENTRY32 {
+                dwSize: std::mem::size_of::<THREADENTRY32>() as u32,
+                ..Default::default()
+            };
 
             if Thread32First(snapshot, &mut entry).is_ok() {
                 loop {

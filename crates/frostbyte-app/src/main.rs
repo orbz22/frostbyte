@@ -11,7 +11,10 @@ use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{
-    menu::{CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
+    menu::{
+        CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem,
+        SubmenuBuilder,
+    },
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, State,
 };
@@ -39,7 +42,17 @@ fn set_autostart_registry(enabled: bool) -> Result<(), String> {
         let cmd = format!("\"{}\" --minimized", exe_path.display());
         let output = Command::new("reg")
             .creation_flags(CREATE_NO_WINDOW)
-            .args(["add", REG_RUN_KEY, "/v", APP_REG_NAME, "/t", "REG_SZ", "/d", &cmd, "/f"])
+            .args([
+                "add",
+                REG_RUN_KEY,
+                "/v",
+                APP_REG_NAME,
+                "/t",
+                "REG_SZ",
+                "/d",
+                &cmd,
+                "/f",
+            ])
             .output()
             .map_err(|e| e.to_string())?;
 
@@ -102,8 +115,10 @@ fn load_config() -> AppConfig {
             return config;
         }
     }
-    let mut default_cfg = AppConfig::default();
-    default_cfg.autostart = is_autostart_registered();
+    let default_cfg = AppConfig {
+        autostart: is_autostart_registered(),
+        ..Default::default()
+    };
     save_config(&default_cfg);
     default_cfg
 }
@@ -243,7 +258,11 @@ fn set_close_to_tray(state: State<'_, AppState>, enabled: bool) -> bool {
 }
 
 #[tauri::command]
-fn soft_tame_process(state: State<'_, AppState>, pid: u32, cpu_limit: Option<u32>) -> Result<(), String> {
+fn soft_tame_process(
+    state: State<'_, AppState>,
+    pid: u32,
+    cpu_limit: Option<u32>,
+) -> Result<(), String> {
     let mut watchdog = state.watchdog.lock();
     watchdog
         .soft_tame_process(pid, cpu_limit.unwrap_or(10))
@@ -251,7 +270,11 @@ fn soft_tame_process(state: State<'_, AppState>, pid: u32, cpu_limit: Option<u32
 }
 
 #[tauri::command]
-fn terminate_process(state: State<'_, AppState>, pid: u32, process_name: String) -> Result<(), String> {
+fn terminate_process(
+    state: State<'_, AppState>,
+    pid: u32,
+    process_name: String,
+) -> Result<(), String> {
     let mut watchdog = state.watchdog.lock();
     watchdog
         .terminate_process(pid, &process_name)
@@ -330,16 +353,18 @@ fn main() {
             let initial_tame = config_arc.lock().auto_tame;
 
             // Build Single Tray Menu with cascading Submenus & real checkmarks (✓)
-            let toggle_show = MenuItemBuilder::with_id("show", "Show FrostByte Dashboard").build(app)?;
+            let toggle_show =
+                MenuItemBuilder::with_id("show", "Show FrostByte Dashboard").build(app)?;
             let sep1 = PredefinedMenuItem::separator(app)?;
 
             // Submenu 1: Instant Cool (Flyout with ✓ Checkmarks)
             let cool_on = CheckMenuItemBuilder::with_id("cool_on", "Turn ON (99% Cap - Cool)")
                 .checked(initial_cool)
                 .build(app)?;
-            let cool_off = CheckMenuItemBuilder::with_id("cool_off", "Turn OFF (100% Boost - Normal)")
-                .checked(!initial_cool)
-                .build(app)?;
+            let cool_off =
+                CheckMenuItemBuilder::with_id("cool_off", "Turn OFF (100% Boost - Normal)")
+                    .checked(!initial_cool)
+                    .build(app)?;
             let cool_submenu = SubmenuBuilder::new(app, "❄️ Instant Cool")
                 .items(&[&cool_on, &cool_off])
                 .build()?;
@@ -352,7 +377,8 @@ fn main() {
                 .checked(!initial_tame)
                 .build(app)?;
             let tame_sep = PredefinedMenuItem::separator(app)?;
-            let revert_all_item = MenuItemBuilder::with_id("revert", "🛡️ Revert All Tamed Processes").build(app)?;
+            let revert_all_item =
+                MenuItemBuilder::with_id("revert", "🛡️ Revert All Tamed Processes").build(app)?;
             let tame_submenu = SubmenuBuilder::new(app, "🛡️ Auto-Tame")
                 .items(&[&tame_on, &tame_off, &tame_sep, &revert_all_item])
                 .build()?;
@@ -361,7 +387,14 @@ fn main() {
             let quit = MenuItemBuilder::with_id("quit", "Exit FrostByte").build(app)?;
 
             let menu = MenuBuilder::new(app)
-                .items(&[&toggle_show, &sep1, &cool_submenu, &tame_submenu, &sep2, &quit])
+                .items(&[
+                    &toggle_show,
+                    &sep1,
+                    &cool_submenu,
+                    &tame_submenu,
+                    &sep2,
+                    &quit,
+                ])
                 .build()?;
 
             // Store references to check menu items in state for live synchronization

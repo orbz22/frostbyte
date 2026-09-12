@@ -17,8 +17,13 @@ impl ProcessActionController {
         }
 
         unsafe {
-            let handle = OpenProcess(PROCESS_TERMINATE, false, pid)
-                .map_err(|e| anyhow::anyhow!("Failed to open PID {} with terminate permission: {:?}", pid, e))?;
+            let handle = OpenProcess(PROCESS_TERMINATE, false, pid).map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to open PID {} with terminate permission: {:?}",
+                    pid,
+                    e
+                )
+            })?;
 
             let term_res = TerminateProcess(handle, 1);
             let _ = CloseHandle(handle);

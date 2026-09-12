@@ -27,12 +27,14 @@ impl PdhThermalZone {
             // High Precision Temperature counter (tenths of a Kelvin, e.g. 3682 = 95.0°C)
             let hp_path = HSTRING::from(r"\Thermal Zone Information(*)\High Precision Temperature");
             let mut hp_counter: isize = 0;
-            let hp_ok = PdhAddEnglishCounterW(query, PCWSTR(hp_path.as_ptr()), 0, &mut hp_counter) == 0;
+            let hp_ok =
+                PdhAddEnglishCounterW(query, PCWSTR(hp_path.as_ptr()), 0, &mut hp_counter) == 0;
 
             // Standard Temperature counter (Kelvin, e.g. 368 = 95°C)
             let std_path = HSTRING::from(r"\Thermal Zone Information(*)\Temperature");
             let mut std_counter: isize = 0;
-            let std_ok = PdhAddEnglishCounterW(query, PCWSTR(std_path.as_ptr()), 0, &mut std_counter) == 0;
+            let std_ok =
+                PdhAddEnglishCounterW(query, PCWSTR(std_path.as_ptr()), 0, &mut std_counter) == 0;
 
             if !hp_ok && !std_ok {
                 let _ = PdhCloseQuery(query);
@@ -127,7 +129,7 @@ impl PdhThermalZone {
 
             if let Some(c) = celsius {
                 // Plausible CPU/motherboard thermal range (20°C - 125°C)
-                if c >= 20.0 && c <= 125.0 {
+                if (20.0..=125.0).contains(&c) {
                     max_celsius = Some(max_celsius.map_or(c, |m| m.max(c)));
                 }
             }
@@ -233,7 +235,7 @@ impl ThermalProvider {
             if output.status.success() {
                 let text = String::from_utf8_lossy(&output.stdout);
                 let parts: Vec<&str> = text.trim().split(',').map(|s| s.trim()).collect();
-                let temp = parts.get(0).and_then(|s| s.parse::<f32>().ok());
+                let temp = parts.first().and_then(|s| s.parse::<f32>().ok());
                 let power = parts.get(1).and_then(|s| s.parse::<f32>().ok());
                 let util = parts.get(2).and_then(|s| s.parse::<f32>().ok());
                 let clock = parts.get(3).and_then(|s| s.parse::<u32>().ok());
@@ -261,9 +263,15 @@ mod tests {
         let snapshot = provider.sample();
         println!("Sampled thermals: {:?}", snapshot);
 
-        assert!(snapshot.cpu_package_temp.is_some(), "CPU package temp should be detected via native PDH");
+        assert!(
+            snapshot.cpu_package_temp.is_some(),
+            "CPU package temp should be detected via native PDH"
+        );
         let temp = snapshot.cpu_package_temp.unwrap();
         println!("Detected CPU Package Temp: {:.1}°C", temp);
-        assert!(temp >= 20.0 && temp <= 115.0, "CPU temperature should be in plausible range");
+        assert!(
+            (20.0..=115.0).contains(&temp),
+            "CPU temperature should be in plausible range"
+        );
     }
 }
