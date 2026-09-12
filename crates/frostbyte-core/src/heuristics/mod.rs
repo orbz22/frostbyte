@@ -85,6 +85,14 @@ impl HeuristicEngine {
 
         alerts
     }
+
+    pub fn set_saturation_threshold(&mut self, threshold: f32) {
+        self.saturation_threshold = threshold;
+    }
+
+    pub fn saturation_threshold(&self) -> f32 {
+        self.saturation_threshold
+    }
 }
 
 impl Default for HeuristicEngine {

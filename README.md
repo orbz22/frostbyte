@@ -1,141 +1,150 @@
 <p align="center">
-  <h1 align="center">❄️ FrostByte</h1>
-  <p align="center">
-    <strong>Smart, Lightweight Thermal Guardian & Runaway Process Watchdog for Windows</strong>
-  </p>
-  <p align="center">
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-    <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows" alt="Platform Windows">
-    <img src="https://img.shields.io/badge/built%20with-Rust%20%2B%20Tauri%20v2-orange.svg?logo=rust" alt="Rust + Tauri">
-    <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
-  </p>
+  <img src="assets/logos/FrostByte-logo-transparent.svg" alt="FrostByte" width="320">
+</p>
+
+<p align="center">
+  A lightweight Windows thermal guardian and process watchdog.<br>
+  Detects single-thread CPU runaway loops, clamps thermal spikes via power governor, and caps rogue background tasks without killing them.
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/dashboard.png" alt="FrostByte Dashboard" width="460">
 </p>
 
 ---
 
-## 💡 The Problem FrostByte Solves
+## Why FrostByte?
 
-Have you ever noticed your laptop fan screaming like a jet engine and your CPU hitting **90°C – 95°C+**, yet when you open Task Manager, CPU usage looks tiny—**only 4% to 6%**?
+On modern multi-core processors, a background thread stuck in an infinite loop consumes 100% of a single logical core. On a 16-thread CPU, Windows Task Manager averages this out to just **~6% total CPU usage**, making the problem invisible at a glance.
 
-Here is what is actually happening behind the scenes:
-1. **The Hidden Loop:** A background process (e.g., an orphaned `node.exe`, a hung updater, or a stuck extension helper) gets trapped in an infinite loop, pegging **one single thread at 100%**.
-2. **The Deception:** On an 8-core / 16-thread CPU (like an Intel Core i7 or AMD Ryzen 7), 1 saturated thread is only `1 / 16 ≈ 6.25%` of total CPU. It looks completely harmless in standard Task Manager graphs.
-3. **The Heat Explosion:** The Windows power scheduler sees a thread demanding maximum throughput and triggers **Intel Turbo Boost / AMD Precision Boost**, pinning that core to maximum clock speed (e.g., 4.2+ GHz) at peak voltage.
-4. **Thermal Throttling:** On modern laptops with compact silicon dies and shared heatpipes, this concentrated hotspot drives temperatures straight to **93°C+**, draining your battery and wearing out hardware while you thought your laptop was idle.
+However, the Windows scheduler interprets that saturated thread as maximum demand and engages **Turbo Boost**, running that core at peak clock frequency and high voltage. On laptops with compact cooling systems and shared heatpipes, this concentrated thermal load rapidly drives CPU package temperatures to **90°C–95°C+**, spinning fans to maximum RPM even when the machine is otherwise idle.
 
-**FrostByte was created to solve this exact problem automatically.**
+FrostByte monitors per-thread execution deltas directly and mitigates these conditions automatically:
 
----
-
-## ✨ Key Features
-
-* 🔍 **Single-Core Saturation Detector:** Analyzes per-thread Win32 kernel/user time deltas to detect runaway loops ($>85\%$ saturation) hiding behind low overall CPU percentages.
-* 🧟 **Orphan & Zombie Process Hunter:** Detects background worker tasks whose parent processes have died but continue burning CPU cycles in the background.
-* 🛡️ **Non-Destructive Soft-Taming:** Instead of blindly killing processes and causing data loss, FrostByte gently restricts rogue tasks to a **10% CPU Hard Cap** and sets them to `IDLE_PRIORITY_CLASS` using native Windows Job Objects (`JOBOBJECT_CPU_RATE_CONTROL_INFORMATION`).
-* ⚡ **Smart Thermal Governor:** Temporarily clamps Windows Power Management (`PROCTHROTTLEMAX` 99%) when CPU package temperatures cross emergency thresholds (> 90°C), dropping temperatures by **15°C – 25°C in seconds** without needing a reboot.
-* 🔒 **Bulletproof Safety Core:**
-  * **Immune Whitelist:** Hardcoded protection for Windows core processes (`csrss.exe`, `explorer.exe`, `dwm.exe`, `lsass.exe`, `audiodg.exe`, Windows Defender, etc.).
-  * **Audio Protection:** Exempts apps actively playing audio via WASAPI (Spotify, YouTube, Zoom, Discord).
-  * **Interactive Reversion:** Revert throttles at any time or automatically when FrostByte exits.
-* 🪶 **Zero Resource Overhead:** Written in pure **Rust + Tauri v2**. Idles at **< 20 MB RAM** and **< 0.1% CPU**.
+1. **Per-Thread Core Saturation Heuristics:** Flags background processes saturating $\ge 80\%$ of a single logical core over consecutive evaluation windows.
+2. **Non-Destructive Job Object Rate Limiting:** Throttles confirmed rogue processes to a hard 10% CPU quota via Win32 Job Objects, rather than terminating them and risking data loss.
+3. **Automated Power Governor:** Clamps Windows processor state (`PROCTHROTTLEMAX` 99%) when thermals exceed safe thresholds, instantly disabling Turbo Boost and dropping CPU package temperatures by 15°C–25°C.
 
 ---
 
-## 🖥️ User Interface & Dashboard
+## Architecture & Implementation
 
-FrostByte offers two high-performance interfaces:
+FrostByte is written in pure Rust and split into three workspace crates:
 
-### 1. Modern Windows 11 Desktop UI (`frostbyte-app`)
-* **Live Hardware Gauges:** Real-time CPU Package & GPU thermals, power draw, and thread clock state.
-* **Instant Cool Toggle:** Clamps Turbo Boost to 99% with a single click, cooling your laptop immediately.
-* **Autonomous Auto-Tame:** Background watchdog that immediately tames rogue single-core loops.
-* **Active Tamed Manager:** See which processes are currently limited, with one-click undo or safe termination.
-* **System Tray Companion:** Minimizes cleanly to the Windows system tray with quick action toggles.
-
-### 2. High-Performance Terminal Dashboard (`frostbyte-cli`)
-* High-visibility colorized status tables.
-* Live continuous monitoring mode (`--count N` or streaming).
-* Fast scriptable command-line flags (`--cool`, `--boost-on`, `--tame <PID>`, `--auto-tame`).
-
----
-
-## 🚀 Quick Start & Usage
-
-### Running the Desktop App
-
-```powershell
-# Run the Tauri v2 Desktop GUI
-cargo run -p frostbyte-app --release
+```
+crates/
+├── frostbyte-core/   # Sensor queries, thread delta math, Job Object API, power governor
+├── frostbyte-app/    # Tauri v2 desktop GUI and system tray shell
+└── frostbyte-cli/    # Standalone terminal monitoring daemon
 ```
 
-### Running the CLI Dashboard
+### Core Mechanisms
+
+- **Thermal Telemetry (`frostbyte-core::thermal`):**
+  Queries motherboard ACPI Thermal Zones (`\_TZ.THRM`) in-process using the native Windows Performance Data Helper (`pdh.dll`). Runs under standard non-elevated user privileges with sub-millisecond query latency and zero console window allocations. Discrete GPU metrics (temperature, power draw, core clock, and load) are queried via NVIDIA NVML / SMI.
+
+- **Process & Thread Delta Sampler (`frostbyte-core::process`):**
+  Uses `CreateToolhelp32Snapshot` to enumerate processes and active threads. Measures microsecond kernel and user time deltas via `GetProcessTimes` and `GetThreadTimes`, normalized against wall-clock time and available logical cores.
+
+- **Soft-Taming Mitigation (`frostbyte-core::mitigation`):**
+  Assigns target processes to an anonymous Windows Job Object configured with `JOBOBJECT_CPU_RATE_CONTROL_INFORMATION` (`JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP` set to 10% rate) and drops process priority to `IDLE_PRIORITY_CLASS`. Throttles can be reverted individually or globally on application exit.
+
+- **Power Governor (`frostbyte-core::governor`):**
+  Modifies active power schemes via `powercfg` (`/setacvalueindex SCHEME_CURRENT 54533251-82be-4824-96c1-47b60b740d00 bc5038f7-23e0-4960-96da-33abaf5935ec <99|100>`). Setting maximum processor frequency to 99% disables Intel Turbo Boost and AMD Precision Boost, bringing the processor to its base frequency.
+
+---
+
+## System Tray
+
+<p align="center">
+  <img src="assets/screenshots/tray-menu.png" alt="System Tray Menu" width="320">
+</p>
+
+FrostByte runs as a native background tray process:
+
+- **Instant Cool Flyout:** Toggle between 99% cap (Cool) and 100% boost (Normal) with live checkmarks (`✓`).
+- **Auto-Tame Flyout:** Enable or disable automatic 10% CPU capping for rogue processes, or reset all active Job Objects.
+- **Left-Click:** Toggles dashboard visibility.
+- **Clean Exit:** Automatically releases all Job Object rate limits before terminating.
+
+---
+
+## Getting Started
+
+### Requirements
+- Windows 10 or Windows 11 (64-bit)
+- Rust 1.75+ (MSVC toolchain: `x86_64-pc-windows-msvc`)
+
+### Build & Run
 
 ```powershell
-# Run one diagnostic snapshot
-cargo run -p frostbyte-cli -- --once
+# Clone the repository
+git clone https://github.com/raiha/frostbyte.git
+cd frostbyte
 
-# Run continuous monitoring with 2-second refresh
-cargo run -p frostbyte-cli
+# Run the desktop application
+cargo run -p frostbyte-app --release
 
-# Immediately drop heat by clamping Turbo Boost to 99%
-cargo run -p frostbyte-cli -- --cool
-
-# Restore full Turbo Boost performance (100%)
-cargo run -p frostbyte-cli -- --boost-on
-
-# Soft-tame a specific runaway process by PID to 10% CPU
-cargo run -p frostbyte-cli -- --tame 12345
-
-# Run continuous watchdog with autonomous loop taming
+# Or run the CLI monitor
 cargo run -p frostbyte-cli -- --auto-tame
 ```
 
+The compiled binary will be placed at `target/release/frostbyte-app.exe`.
+
 ---
 
-## 🏗️ Workspace Architecture
+## Configuration
 
-The FrostByte codebase is organized as an enterprise-grade Rust workspace:
+Settings are stored in `%LOCALAPPDATA%\FrostByte\config.json`:
 
-```
-frostbyte/
-├── crates/
-│   ├── frostbyte-core/      # Telemetry, Heuristics, Windows Job Objects, Power Governor
-│   │   ├── src/
-│   │   │   ├── governor/    # Windows Power Scheme PROCTHROTTLEMAX (100% <-> 99%)
-│   │   │   ├── heuristics/  # Single-core saturation & orphan loop detector
-│   │   │   ├── mitigation/  # Windows Job Object CPU rate limiting (10% hard cap)
-│   │   │   ├── process/     # Win32 Toolhelp32 process & thread delta sampling
-│   │   │   ├── safety/      # Immutable system whitelist & immunity validator
-│   │   │   ├── thermal/     # WMI / ACPI / NVML temperature telemetry
-│   │   │   └── types.rs     # Shared domain data models
-│   ├── frostbyte-cli/       # Lightweight terminal monitoring dashboard
-│   └── frostbyte-app/       # Tauri v2 Windows 11 system tray & desktop application
-│       ├── ui/              # Modern Tailwind CSS / Fluent dark-mode frontend
-│       └── src/main.rs      # Native system tray and IPC command bindings
-└── docs/                    # Complete PRD, Architecture, Safety Rules, & Roadmap
+```json
+{
+  "auto_tame": true,
+  "cool_mode": false,
+  "auto_cool": true,
+  "auto_cool_temp_threshold": 88.0,
+  "saturation_threshold": 80.0,
+  "autostart": true,
+  "close_to_tray": true
+}
 ```
 
----
-
-## 📂 Documentation
-
-Comprehensive technical specifications are available in [`docs/`](docs/):
-
-* 📄 [**Product Requirements Document (PRD)**](docs/PRD.md)
-* 🏗️ [**System Architecture & Design**](docs/ARCHITECTURE.md)
-* 🛡️ [**Safety Rules & Immunity Specifications**](docs/SAFETY_RULES.md)
-* ⚙️ [**Technology Stack Evaluation**](docs/TECH_STACK.md)
-* 🗺️ [**Product Roadmap & Milestones**](docs/ROADMAP.md)
+| Key | Default | Description |
+|---|---|---|
+| `auto_cool` | `true` | Automatically clamp Turbo Boost when CPU temperature reaches the ceiling threshold. |
+| `auto_cool_temp_threshold` | `88.0` | Temperature ceiling (°C) that triggers cooling clamping. |
+| `auto_tame` | `true` | Automatically assign single-core runaway processes to a 10% CPU Job Object. |
+| `saturation_threshold` | `80.0` | Per-thread CPU load percentage threshold required to trigger loop detection. |
+| `autostart` | `false` | Launch minimized to system tray on Windows login (`HKCU\...\Run`). |
+| `close_to_tray` | `true` | Minimizes window to tray on close ('X') instead of terminating. |
 
 ---
 
-## 🤝 Contributing
+## Safety & Immunity Whitelist
 
-Contributions, issues, and feature requests are welcome!
-Please read our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+To guarantee system stability, critical operating system processes, antivirus agents, and driver services are hardcoded as immune (`frostbyte-core::safety::whitelist`). They cannot be throttled or terminated:
+
+```
+system, smss.exe, csrss.exe, wininit.exe, services.exe, lsass.exe,
+lsm.exe, winlogon.exe, dwm.exe, explorer.exe, sihost.exe, taskhostw.exe,
+fontdrvhost.exe, audiodg.exe, svchost.exe, msmpeng.exe, nissrv.exe,
+securityhealthservice.exe, smartscreen.exe, nvcontainer.exe,
+nvdisplay.container.exe, amdfendrsr.exe, igfxcuiservice.exe,
+rtkaudioservice64.exe, frostbyte.exe, frostbyte-app.exe
+```
 
 ---
 
-## 📜 License
+## Documentation
 
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
+- [`docs/PRD.md`](docs/PRD.md) — Product requirements and problem analysis
+- [`docs/DESIGN.md`](docs/DESIGN.md) — UI/UX design specifications and token architecture
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Subsystem architecture and IPC contracts
+- [`docs/SAFETY_RULES.md`](docs/SAFETY_RULES.md) — Whitelisting rules and mitigation safety constraints
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — Milestone tracking and future releases
+
+---
+
+## License
+
+MIT License. See [`LICENSE`](LICENSE) for details.

@@ -18,21 +18,44 @@ pub struct PowerGovernor {
     cool_temp_threshold: f32,
     consecutive_cool_ticks: u32,
     required_cool_ticks: u32,
+    auto_cool_enabled: bool,
 }
 
 impl PowerGovernor {
-    pub fn new(high_temp_threshold: f32, cool_temp_threshold: f32, required_cool_ticks: u32) -> Self {
+    pub fn new(
+        high_temp_threshold: f32,
+        cool_temp_threshold: f32,
+        required_cool_ticks: u32,
+        auto_cool_enabled: bool,
+    ) -> Self {
         Self {
             state: GovernorState::Normal,
             high_temp_threshold,
             cool_temp_threshold,
             consecutive_cool_ticks: 0,
             required_cool_ticks,
+            auto_cool_enabled,
         }
     }
 
     pub fn current_state(&self) -> GovernorState {
         self.state
+    }
+
+    pub fn set_auto_cool(&mut self, enabled: bool) {
+        self.auto_cool_enabled = enabled;
+    }
+
+    pub fn is_auto_cool_enabled(&self) -> bool {
+        self.auto_cool_enabled
+    }
+
+    pub fn set_high_temp_threshold(&mut self, threshold: f32) {
+        self.high_temp_threshold = threshold;
+    }
+
+    pub fn high_temp_threshold(&self) -> f32 {
+        self.high_temp_threshold
     }
 
     /// Toggles Intel Turbo Boost / AMD Precision Boost by adjusting
@@ -82,6 +105,11 @@ impl PowerGovernor {
     /// Evaluates current temperature and automatically intervenes if necessary.
     /// Returns Some(true) if boost was clamped (cooled), Some(false) if boost was restored, None if unchanged.
     pub fn evaluate_thermals(&mut self, current_temp: Option<f32>, is_ac_online: bool) -> Option<bool> {
+        // If user set Instant Cool to manual mode, do not auto-intervene
+        if !self.auto_cool_enabled {
+            return None;
+        }
+
         let temp = current_temp?;
 
         // Only govern when plugged in (battery usually has boost restricted by default)
@@ -121,7 +149,7 @@ impl PowerGovernor {
 
 impl Default for PowerGovernor {
     fn default() -> Self {
-        // High trigger: 88.0°C, Safe cool: 65.0°C, Hysteresis ticks: 5 (10 seconds at 2s/tick)
-        Self::new(88.0, 65.0, 5)
+        // High trigger: 88.0°C, Safe cool: 65.0°C, Hysteresis ticks: 5 (10 seconds at 2s/tick), Auto-cool enabled: true
+        Self::new(88.0, 65.0, 5, true)
     }
 }

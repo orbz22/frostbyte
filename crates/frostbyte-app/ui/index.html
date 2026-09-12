@@ -1,219 +1,440 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html class="dark" lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FrostByte Thermal Guardian</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>FrostByte</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* Resilient fallback styles in case CDN is offline or blocked by WebView2 CSP */
-    * {
+    /* Hallmark anti-slop baseline */
+    *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-    body {
-      font-family: 'Segoe UI Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: #030712;
-      color: #f8fafc;
+
+    :root {
+      --bg-base: #090a0d;
+      --bg-surface: #12141a;
+      --bg-surface-raised: #181b22;
+      --bg-hover: #1e222b;
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-focus: rgba(56, 189, 248, 0.4);
+      --text-main: #f1f3f7;
+      --text-muted: #8b92a0;
+      --text-dim: #545b68;
+      --cyan: #38bdf8;
+      --cyan-dim: rgba(56, 189, 248, 0.12);
+      --emerald: #34d399;
+      --emerald-dim: rgba(52, 211, 153, 0.12);
+      --amber: #fbbf24;
+      --amber-dim: rgba(251, 191, 36, 0.12);
+      --rose: #f87171;
+      --rose-dim: rgba(248, 113, 113, 0.14);
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', Consolas, monospace;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
       user-select: none;
       -webkit-user-select: none;
-      min-height: 100vh;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
+
+    .tabular {
+      font-variant-numeric: tabular-nums;
+      font-family: var(--font-mono);
+    }
+
+    /* Precision scrollbar */
     ::-webkit-scrollbar {
-      width: 6px;
+      width: 4px;
+      height: 4px;
     }
     ::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.6);
+      background: transparent;
     }
     ::-webkit-scrollbar-thumb {
-      background: rgba(56, 189, 248, 0.2);
-      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(56, 189, 248, 0.4);
+      background: rgba(255, 255, 255, 0.25);
     }
-    .acrylic {
-      background: rgba(17, 24, 39, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+
+    /* Clean, non-slop switches */
+    .switch-track {
+      width: 32px;
+      height: 18px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.1);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      flex-shrink: 0;
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .glow-cyan {
-      box-shadow: 0 0 20px -5px rgba(56, 189, 248, 0.3);
+    .switch-track.active-cyan {
+      background: var(--cyan);
+      border-color: var(--cyan);
     }
-    .glow-red {
-      box-shadow: 0 0 25px -5px rgba(239, 68, 68, 0.4);
+    .switch-track.active-emerald {
+      background: var(--emerald);
+      border-color: var(--emerald);
+    }
+    .switch-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 9999px;
+      background: #ffffff;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+    .switch-track.active-cyan .switch-thumb,
+    .switch-track.active-emerald .switch-thumb {
+      transform: translateX(14px);
+    }
+
+    /* Subtly interactive buttons */
+    .btn-action {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface-raised);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.1s ease;
+    }
+    .btn-action:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+    .btn-action.tamed {
+      background: var(--emerald-dim);
+      border-color: rgba(52, 211, 153, 0.3);
+      color: var(--emerald);
+    }
+    .btn-action.tamed:hover {
+      background: rgba(52, 211, 153, 0.2);
+    }
+    .btn-action.danger {
+      background: var(--rose-dim);
+      border-color: rgba(248, 113, 113, 0.3);
+      color: var(--rose);
+    }
+    .btn-action.danger:hover {
+      background: rgba(248, 113, 113, 0.25);
+    }
+
+    /* Slider styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      border: 2px solid var(--bg-surface);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-4 flex flex-col overflow-y-auto">
+<body>
 
-  <!-- Header -->
-  <header class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
-    <div class="flex items-center space-x-2.5">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-300 flex items-center justify-center text-slate-950 text-xl font-bold shadow-lg shadow-sky-500/20">
-        ❄️
+  <!-- Full-bleed root container -->
+  <div style="display: flex; flex-direction: column; height: 100vh; padding: 14px 16px;">
+
+    <!-- 1. Top Bar: Restrained, Native & Crisp -->
+    <header style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-weight: 700; font-size: 14px; letter-spacing: -0.01em; color: #ffffff;">FrostByte</span>
+        <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border-subtle);">v0.3.0</span>
+        <span style="color: var(--text-dim); font-size: 11px;">•</span>
+        <div id="headerStatusBadge" style="display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; color: var(--emerald);">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--emerald); display: inline-block;"></span>
+          <span id="headerStatusText">Guardian Active</span>
+        </div>
+      </div>
+
+      <button onclick="openSettingsModal()" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.1s ease;" title="Preferences">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Scrollable Body Workspace -->
+    <main style="display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; padding-top: 12px; overflow-y: auto;">
+
+      <!-- 2. Dual Hardware Instrument Bay -->
+      <section style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex-shrink: 0;">
+
+        <!-- CPU Package Instrument -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">CPU Package</span>
+            <span id="cpuStatusBadge" style="font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--emerald);">Nominal</span>
+          </div>
+
+          <div style="display: flex; align-items: baseline; justify-content: space-between; margin-block: 8px 6px;">
+            <div style="display: flex; align-items: baseline; gap: 2px;">
+              <span id="cpuTempInt" class="tabular" style="font-size: 32px; font-weight: 700; letter-spacing: -0.02em; color: #ffffff;">--</span>
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">°C</span>
+            </div>
+            <div style="text-align: right;">
+              <div id="cpuTurboText" class="tabular" style="font-size: 11px; font-weight: 600; color: var(--emerald);">Boost Active</div>
+              <div id="cpuThreadsText" class="tabular" style="font-size: 10px; color: var(--text-dim);">-- Threads</div>
+            </div>
+          </div>
+
+          <!-- Thin hairline gauge -->
+          <div>
+            <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;">
+              <div id="cpuTempBar" style="height: 100%; width: 45%; background: var(--emerald); border-radius: 2px; transition: width 0.3s ease, background 0.3s ease;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: var(--text-dim);" class="tabular">
+              <span id="cpuMinText">Min --°C</span>
+              <span id="cpuCeilingText" style="color: var(--text-muted);">Ceiling 88°C</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- GPU Package Instrument -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Discrete GPU</span>
+            <span id="gpuStatusBadge" style="font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--emerald);">Nominal</span>
+          </div>
+
+          <div style="display: flex; align-items: baseline; justify-content: space-between; margin-block: 8px 6px;">
+            <div style="display: flex; align-items: baseline; gap: 2px;">
+              <span id="gpuTempInt" class="tabular" style="font-size: 32px; font-weight: 700; letter-spacing: -0.02em; color: #ffffff;">--</span>
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">°C</span>
+            </div>
+            <div style="text-align: right;">
+              <div id="gpuPowerText" class="tabular" style="font-size: 11px; font-weight: 600; color: var(--text-main);">-- W</div>
+              <div id="gpuPowerStatusText" class="tabular" style="font-size: 10px; color: var(--text-dim);">AC Online</div>
+            </div>
+          </div>
+
+          <!-- Thin hairline gauge -->
+          <div>
+            <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;">
+              <div id="gpuTempBar" style="height: 100%; width: 35%; background: var(--cyan); border-radius: 2px; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: var(--text-dim);" class="tabular">
+              <span id="gpuUtilText">Load 0%</span>
+              <span id="gpuClockText" style="color: var(--text-muted);">Clock -- MHz</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- 3. Smart Policy Controllers: Calm, Integrated Rows -->
+      <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px 14px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Governor Policies</span>
+          <button onclick="revertAllTames()" class="btn-action" style="padding: 2px 7px; font-size: 10px;">Revert All</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <!-- Instant Cool Row -->
+          <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-main);">Instant Cool</span>
+                <span id="coolModeBadge" style="font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--cyan); background: var(--cyan-dim); padding: 1px 4px; border-radius: 3px;">AUTO</span>
+              </div>
+              <div id="coolModeSubtext" style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Trigger at ≥ 88°C</div>
+            </div>
+            <div id="coolModeToggleBtn" onclick="toggleCoolMode()" class="switch-track" title="Toggle Instant Cool">
+              <div id="coolModeToggleCircle" class="switch-thumb"></div>
+            </div>
+          </div>
+
+          <!-- Auto-Tame Row -->
+          <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <span style="font-size: 12px; font-weight: 600; color: var(--text-main);">Auto-Tame</span>
+              <div style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">10% CPU Hard Cap</div>
+            </div>
+            <div id="autoTameToggleBtn" onclick="toggleAutoTame()" class="switch-track" title="Toggle Auto-Tame">
+              <div id="autoTameToggleCircle" class="switch-thumb"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Rogue Loop Alert: Quiet when empty, High-signal when tripped -->
+      <div id="alertContainer" style="flex-shrink: 0;"></div>
+
+      <!-- 5. Process Watchdog Table: High-density Precision Instrument -->
+      <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 10px; flex: 1; display: flex; flex-direction: column; min-height: 160px; overflow: hidden;">
+        <!-- Table Header Bar -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); background: rgba(255,255,255,0.01); flex-shrink: 0;">
+          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Process Watchdog</span>
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px;">
+            <span style="color: var(--text-dim);">Total CPU</span>
+            <span id="totalCpuBadge" class="tabular" style="font-weight: 600; color: var(--text-main);">--%</span>
+          </div>
+        </div>
+
+        <!-- Column Headers -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1.2fr 1fr; padding: 6px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;">
+          <span>Process</span>
+          <span style="text-align: right;">Total CPU</span>
+          <span style="text-align: right;">Core Load</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        <!-- Table Rows Container -->
+        <div id="processTableBody" style="flex: 1; overflow-y: auto; divide-y: 1px solid rgba(255,255,255,0.03);">
+          <div style="padding: 24px 0; text-align: center; color: var(--text-dim); font-size: 11px; font-family: var(--font-mono);">Connecting to guardian engine...</div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 6. Footer Status Bar -->
+    <footer style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); flex-shrink: 0;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span id="footerOsText">Windows 11 x64</span>
+        <span>•</span>
+        <span id="footerQuickStatusText" style="color: var(--emerald);">Active</span>
       </div>
       <div>
-        <h1 class="text-base font-bold tracking-wide text-white flex items-center gap-2">
-          FrostByte
-          <span class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">v0.3.0</span>
-        </h1>
-        <p class="text-xs text-slate-400">Thermal Guardian & Process Watchdog</p>
+        <span>Polling: 1.5s</span>
       </div>
-    </div>
-    <div id="statusBadge" class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-      <span id="statusBadgeText">GUARDIAN ACTIVE</span>
-    </div>
-  </header>
+    </footer>
 
-  <!-- Thermals & Gauges Grid -->
-  <div class="grid grid-cols-2 gap-3 mb-4">
-    <!-- CPU Thermals Card -->
-    <div class="acrylic rounded-2xl p-3.5 flex flex-col justify-between">
-      <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
-        <span class="flex items-center gap-1.5 font-medium">
-          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
-          CPU PACKAGE
-        </span>
-        <span id="cpuClock" class="font-mono text-[11px] text-slate-400">-- Threads</span>
-      </div>
-      <div class="flex items-baseline gap-2 my-1">
-        <span id="cpuTempText" class="text-3xl font-extrabold font-mono text-emerald-400 tracking-tight">--°C</span>
-        <span id="turboStateText" class="text-[11px] text-slate-400 font-medium">Boost Active</span>
-      </div>
-      <!-- Mini Progress Bar -->
-      <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden mt-1">
-        <div id="cpuTempBar" class="bg-emerald-400 h-full rounded-full transition-all duration-500" style="width: 45%;"></div>
-      </div>
-    </div>
+    <!-- 7. Apple-style Settings Sheet (Drawer Overlay) -->
+    <div id="settings-modal" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; transition: opacity 0.2s ease, transform 0.2s ease; opacity: 0; pointer-events: none; transform: translateY(12px);">
+      <div style="background: var(--bg-surface); border-top: 1px solid rgba(255,255,255,0.12); border-radius: 16px 16px 0 0; padding: 20px; display: flex; flex-direction: column; gap: 14px; max-height: 85%; overflow-y: auto; box-shadow: 0 -10px 40px rgba(0,0,0,0.8);">
 
-    <!-- GPU Thermals Card -->
-    <div class="acrylic rounded-2xl p-3.5 flex flex-col justify-between">
-      <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
-        <span class="flex items-center gap-1.5 font-medium">
-          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-          DISCRETE GPU
-        </span>
-        <span id="powerStatusText" class="font-mono text-[11px] text-emerald-400">AC Online</span>
-      </div>
-      <div class="flex items-baseline gap-2 my-1">
-        <span id="gpuTempText" class="text-3xl font-extrabold font-mono text-cyan-400 tracking-tight">--°C</span>
-        <span id="gpuPowerText" class="text-xs font-mono text-slate-400">-- W</span>
-      </div>
-      <!-- Mini Progress Bar -->
-      <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden mt-1">
-        <div id="gpuTempBar" class="bg-cyan-400 h-full rounded-full transition-all duration-500" style="width: 35%;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Smart Controls & Quick Toggles -->
-  <div class="acrylic rounded-2xl p-3.5 mb-4">
-    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
-      <span>Smart Governor & Mitigations</span>
-      <button onclick="revertAllTames()" class="text-[11px] text-sky-400 hover:text-sky-300 font-normal underline">Revert All Tames</button>
-    </div>
-
-    <div class="grid grid-cols-2 gap-2.5 mb-2.5">
-      <!-- Cool Down Toggle -->
-      <button id="coolModeBtn" onclick="toggleCoolMode()" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition group text-left">
-        <div>
-          <div class="text-xs font-bold text-white group-hover:text-sky-400 flex items-center gap-1">
-            <span>❄️ Instant Cool</span>
+        <!-- Sheet Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle);">
+          <div>
+            <h3 style="font-size: 14px; font-weight: 600; color: #ffffff;">Preferences</h3>
+            <p style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Guardian behavior and thermal intervention</p>
           </div>
-          <p class="text-[10px] text-slate-400">Cap boost at 99%</p>
+          <button onclick="closeSettingsModal()" style="background: rgba(255,255,255,0.06); border: none; color: var(--text-muted); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px;">✕</button>
         </div>
-        <div id="coolModeIndicator" class="w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700"></div>
-      </button>
 
-      <!-- Auto-Tame Toggle -->
-      <button id="autoTameBtn" onclick="toggleAutoTame()" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition group text-left">
-        <div>
-          <div class="text-xs font-bold text-white group-hover:text-emerald-400 flex items-center gap-1">
-            <span>🛡️ Auto-Tame</span>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+
+          <!-- Mode Toggle: Auto vs Manual -->
+          <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-size: 12px; font-weight: 600; color: var(--text-main);">Instant Cool Mode</div>
+              <p id="settingAutoCoolDesc" style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">Auto-clamp boost when CPU exceeds thermal threshold.</p>
+            </div>
+            <button id="settingAutoCoolBtn" onclick="toggleSettingAutoCool()" class="btn-action" style="padding: 4px 10px; color: var(--cyan); border-color: rgba(56, 189, 248, 0.4); background: var(--cyan-dim);">Auto</button>
           </div>
-          <p class="text-[10px] text-slate-400">10% CPU Hard Cap</p>
+
+          <!-- Thermal Ceiling Slider -->
+          <div id="autoCoolSliderContainer" style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 12px; font-weight: 500; color: var(--text-main);">Thermal Ceiling Trigger</span>
+              <span id="temp-trigger-val" class="tabular" style="font-size: 12px; font-weight: 600; color: var(--cyan);">88°C</span>
+            </div>
+            <input type="range" id="temp-slider" min="75" max="95" value="88" oninput="onAutoCoolTempSliderChange(this.value)">
+            <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-dim); font-family: var(--font-mono);">
+              <span>75°C (Cool)</span>
+              <span>88°C (Default)</span>
+              <span>95°C (Hot)</span>
+            </div>
+          </div>
+
+          <!-- Saturation Threshold Slider -->
+          <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 12px; font-weight: 500; color: var(--text-main);">Core Saturation Threshold</span>
+              <span id="sat-val" class="tabular" style="font-size: 12px; font-weight: 600; color: var(--cyan);">80%</span>
+            </div>
+            <input type="range" id="sat-slider" min="60" max="95" step="5" value="80" oninput="onSatSliderChange(this.value)">
+            <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-dim); font-family: var(--font-mono);">
+              <span>60% (Sensitive)</span>
+              <span>80% (Default)</span>
+              <span>95% (Strict)</span>
+            </div>
+          </div>
+
+          <!-- System Toggles -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-main);">Start at Login</div>
+                <div style="font-size: 9px; color: var(--text-dim); margin-top: 1px;">Auto-run on Windows boot</div>
+              </div>
+              <div id="settingAutoStartToggle" onclick="toggleSettingAutoStart()" class="switch-track">
+                <div id="settingAutoStartCircle" class="switch-thumb"></div>
+              </div>
+            </div>
+
+            <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-main);">Close to Tray</div>
+                <div style="font-size: 9px; color: var(--text-dim); margin-top: 1px;">Keep guardian running</div>
+              </div>
+              <div id="settingCloseTrayToggle" onclick="toggleSettingCloseToTray()" class="switch-track active-cyan">
+                <div id="settingCloseTrayCircle" class="switch-thumb"></div>
+              </div>
+            </div>
+          </div>
+
         </div>
-        <div id="autoTameIndicator" class="w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700"></div>
-      </button>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
+          <span style="font-size: 10px; font-family: var(--font-mono); color: var(--text-dim);">Saved in %LOCALAPPDATA%</span>
+          <button onclick="closeSettingsModal()" class="btn-action" style="padding: 5px 14px; font-size: 11px; background: var(--cyan); color: #090a0d; font-weight: 700; border-color: var(--cyan);">Done</button>
+        </div>
+
+      </div>
     </div>
 
-    <!-- Auto-Start Toggle Row -->
-    <div class="flex items-center justify-between pt-2.5 border-t border-slate-800/60 text-xs">
-      <div class="flex items-center gap-2">
-        <span>🚀</span>
-        <span class="text-slate-300 font-medium">Auto-Start with Windows</span>
-        <span class="text-[10px] text-slate-500">(Starts minimized to tray)</span>
-      </div>
-      <button id="autoStartBtn" onclick="toggleAutoStart()" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
-        <span id="autoStartText" class="text-[11px] text-slate-400 font-medium">Disabled</span>
-        <div id="autoStartIndicator" class="w-2 h-2 rounded-full bg-slate-600"></div>
-      </button>
-    </div>
   </div>
 
-  <!-- Runaway Loop Alert Box (Dynamic) -->
-  <div id="alertContainer" class="mb-4">
-    <!-- Populated via JS -->
-    <div class="acrylic rounded-2xl p-3 flex items-center gap-3 border-emerald-500/20 bg-emerald-950/10">
-      <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
-        ✓
-      </div>
-      <div>
-        <p class="text-xs font-bold text-emerald-400">Thermals & Threads Healthy</p>
-        <p class="text-[11px] text-slate-400">No runaway single-core loops detected.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Active Processes Section -->
-  <div class="acrylic rounded-2xl p-3.5 flex-1 flex flex-col min-h-0">
-    <div class="flex items-center justify-between mb-2">
-      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-        <span>Active Processes</span>
-        <span id="totalCpuBadge" class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-sky-400">CPU: --%</span>
-      </div>
-      <span class="text-[10px] text-slate-500">Live 1.5s Refresh</span>
-    </div>
-
-    <!-- Table Container -->
-    <div class="flex-1 overflow-y-auto pr-1">
-      <table class="w-full text-left text-xs">
-        <thead class="text-[10px] uppercase text-slate-500 border-b border-slate-800 sticky top-0 bg-slate-900/90 backdrop-blur z-10">
-          <tr>
-            <th class="py-1.5 px-2">Process</th>
-            <th class="py-1.5 px-2 text-right">Total CPU</th>
-            <th class="py-1.5 px-2 text-right">Core Saturation</th>
-            <th class="py-1.5 px-2 text-center">Action</th>
-          </tr>
-        </thead>
-        <tbody id="processTableBody" class="divide-y divide-slate-800/60 font-mono text-[11px]">
-          <tr>
-            <td colspan="4" class="py-4 text-center text-slate-500">Connecting to FrostByte engine...</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <footer class="mt-3 text-center text-[10px] text-slate-500">
-    FrostByte open-source guardian • Safe-by-default architecture
-  </footer>
-
-  <!-- Script logic interfacing with Tauri v2 -->
+  <!-- Embedded Tauri v2 Script Engine -->
   <script>
     let isCoolModeActive = false;
     let isAutoTameActive = false;
+    let minCpuTempRecorded = null;
+    let currentConfig = {
+      auto_tame: false,
+      cool_mode: false,
+      auto_cool: true,
+      autostart: false,
+      close_to_tray: true,
+      saturation_threshold: 80.0,
+      auto_cool_temp_threshold: 88.0
+    };
 
-    // Resilient Tauri invoke resolving
     function getTauriInvoke() {
       if (window.__TAURI__?.core?.invoke) return window.__TAURI__.core.invoke;
       if (window.__TAURI__?.invoke) return window.__TAURI__.invoke;
@@ -229,11 +450,30 @@
           console.error(`Tauri command '${cmd}' error:`, e);
           return null;
         }
-      } else {
-        return null;
+      }
+      return null;
+    }
+
+    /* Modal Navigation */
+    function openSettingsModal() {
+      const modal = document.getElementById('settings-modal');
+      if (modal) {
+        modal.style.opacity = '1';
+        modal.style.pointerEvents = 'auto';
+        modal.style.transform = 'translateY(0)';
       }
     }
 
+    function closeSettingsModal() {
+      const modal = document.getElementById('settings-modal');
+      if (modal) {
+        modal.style.opacity = '0';
+        modal.style.pointerEvents = 'none';
+        modal.style.transform = 'translateY(12px)';
+      }
+    }
+
+    /* Toggle Handlers */
     async function toggleCoolMode() {
       isCoolModeActive = !isCoolModeActive;
       try {
@@ -254,6 +494,152 @@
       }
     }
 
+    async function toggleSettingAutoCool() {
+      const nextState = !currentConfig.auto_cool;
+      try {
+        const res = await invokeCmd('set_auto_cool', { enabled: nextState });
+        if (res !== null && res !== undefined) {
+          currentConfig.auto_cool = res;
+          renderSettingsUI();
+        }
+      } catch (err) {
+        console.error("Failed to toggle auto cool:", err);
+      }
+    }
+
+    async function onAutoCoolTempSliderChange(val) {
+      const numVal = parseFloat(val);
+      const textEl = document.getElementById('temp-trigger-val');
+      if (textEl) textEl.textContent = `${numVal}°C`;
+      currentConfig.auto_cool_temp_threshold = numVal;
+      try {
+        await invokeCmd('update_config', { newConfig: currentConfig });
+        renderCoolModeDashboardBadge();
+      } catch (err) {
+        console.error("Failed to update auto cool temp:", err);
+      }
+    }
+
+    async function onSatSliderChange(val) {
+      const numVal = parseFloat(val);
+      const textEl = document.getElementById('sat-val');
+      if (textEl) textEl.textContent = `${numVal}%`;
+      currentConfig.saturation_threshold = numVal;
+      try {
+        await invokeCmd('update_config', { newConfig: currentConfig });
+      } catch (err) {
+        console.error("Failed to update saturation threshold:", err);
+      }
+    }
+
+    async function toggleSettingAutoStart() {
+      const nextState = !currentConfig.autostart;
+      try {
+        const res = await invokeCmd('set_autostart', { enabled: nextState });
+        if (res !== null && res !== undefined) {
+          currentConfig.autostart = res;
+          renderSettingsUI();
+        }
+      } catch (err) {
+        console.error("Failed to toggle autostart:", err);
+      }
+    }
+
+    async function toggleSettingCloseToTray() {
+      const nextState = !currentConfig.close_to_tray;
+      try {
+        const res = await invokeCmd('set_close_to_tray', { enabled: nextState });
+        if (res !== null && res !== undefined) {
+          currentConfig.close_to_tray = res;
+          renderSettingsUI();
+        }
+      } catch (err) {
+        console.error("Failed to toggle close to tray:", err);
+      }
+    }
+
+    function renderCoolModeDashboardBadge() {
+      const badge = document.getElementById('coolModeBadge');
+      const subtext = document.getElementById('coolModeSubtext');
+      if (badge && subtext) {
+        if (currentConfig.auto_cool) {
+          badge.textContent = "AUTO";
+          badge.style.color = "var(--cyan)";
+          badge.style.background = "var(--cyan-dim)";
+          subtext.textContent = `Trigger at ≥ ${currentConfig.auto_cool_temp_threshold || 88}°C`;
+        } else {
+          badge.textContent = "MANUAL";
+          badge.style.color = "var(--amber)";
+          badge.style.background = "var(--amber-dim)";
+          subtext.textContent = "Manual Toggle (99% Cap)";
+        }
+      }
+    }
+
+    function renderSettingsUI() {
+      const autoCoolBtn = document.getElementById('settingAutoCoolBtn');
+      const autoCoolDesc = document.getElementById('settingAutoCoolDesc');
+      const autoCoolSliderContainer = document.getElementById('autoCoolSliderContainer');
+      const tempSlider = document.getElementById('temp-slider');
+      const tempTriggerVal = document.getElementById('temp-trigger-val');
+
+      if (autoCoolBtn) {
+        if (currentConfig.auto_cool) {
+          autoCoolBtn.textContent = "Auto";
+          autoCoolBtn.style.color = "var(--cyan)";
+          autoCoolBtn.style.background = "var(--cyan-dim)";
+          autoCoolBtn.style.borderColor = "rgba(56, 189, 248, 0.4)";
+          if (autoCoolDesc) autoCoolDesc.textContent = `Auto-clamp boost when CPU exceeds ${currentConfig.auto_cool_temp_threshold || 88}°C.`;
+          if (autoCoolSliderContainer) {
+            autoCoolSliderContainer.style.opacity = '1';
+            autoCoolSliderContainer.style.pointerEvents = 'auto';
+          }
+        } else {
+          autoCoolBtn.textContent = "Manual";
+          autoCoolBtn.style.color = "var(--amber)";
+          autoCoolBtn.style.background = "var(--amber-dim)";
+          autoCoolBtn.style.borderColor = "rgba(251, 191, 36, 0.4)";
+          if (autoCoolDesc) autoCoolDesc.textContent = "Manual control only (no automatic thermal intervention).";
+          if (autoCoolSliderContainer) {
+            autoCoolSliderContainer.style.opacity = '0.35';
+            autoCoolSliderContainer.style.pointerEvents = 'none';
+          }
+        }
+      }
+
+      if (tempSlider && currentConfig.auto_cool_temp_threshold) {
+        tempSlider.value = currentConfig.auto_cool_temp_threshold;
+        if (tempTriggerVal) tempTriggerVal.textContent = `${currentConfig.auto_cool_temp_threshold}°C`;
+      }
+
+      const satSlider = document.getElementById('sat-slider');
+      const satVal = document.getElementById('sat-val');
+      if (satSlider && currentConfig.saturation_threshold) {
+        satSlider.value = currentConfig.saturation_threshold;
+        if (satVal) satVal.textContent = `${currentConfig.saturation_threshold}%`;
+      }
+
+      const autoStartToggle = document.getElementById('settingAutoStartToggle');
+      if (autoStartToggle) {
+        if (currentConfig.autostart) {
+          autoStartToggle.className = "switch-track active-cyan";
+        } else {
+          autoStartToggle.className = "switch-track";
+        }
+      }
+
+      const closeTrayToggle = document.getElementById('settingCloseTrayToggle');
+      if (closeTrayToggle) {
+        if (currentConfig.close_to_tray) {
+          closeTrayToggle.className = "switch-track active-cyan";
+        } else {
+          closeTrayToggle.className = "switch-track";
+        }
+      }
+
+      renderCoolModeDashboardBadge();
+    }
+
     async function softTamePid(pid) {
       try {
         await invokeCmd('soft_tame_process', { pid: Number(pid), cpuLimit: 10 });
@@ -264,7 +650,7 @@
     }
 
     async function terminatePid(pid, name) {
-      if (confirm(`Are you sure you want to terminate '${name}' (PID ${pid})?`)) {
+      if (confirm(`Force quit process '${name}' (PID ${pid})?`)) {
         try {
           await invokeCmd('terminate_process', { pid: Number(pid), processName: name });
           refreshNow();
@@ -293,181 +679,213 @@
     }
 
     function updateGovernorUI(clamped) {
-      const btn = document.getElementById('coolModeBtn');
-      const ind = document.getElementById('coolModeIndicator');
-      const turboText = document.getElementById('turboStateText');
-      if (!btn || !ind || !turboText) return;
+      const toggle = document.getElementById('coolModeToggleBtn');
+      const turboText = document.getElementById('cpuTurboText');
 
       if (clamped) {
-        btn.classList.add('border-sky-500', 'bg-sky-950/20');
-        ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-sky-400 bg-sky-400 shadow-[0_0_8px_#38bdf8]';
-        turboText.textContent = "99% Clamped";
-        turboText.className = "text-[11px] text-sky-400 font-semibold";
-      } else {
-        btn.classList.remove('border-sky-500', 'bg-sky-950/20');
-        ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700';
-        turboText.textContent = "Boost On";
-        turboText.className = "text-[11px] text-slate-400 font-medium";
-      }
-    }
-
-    let isAutoStartActive = false;
-
-    async function toggleAutoStart() {
-      isAutoStartActive = !isAutoStartActive;
-      try {
-        const res = await invokeCmd('set_autostart', { enabled: isAutoStartActive });
-        if (res !== null && res !== undefined) {
-          isAutoStartActive = res;
-          updateAutoStartUI(res);
+        if (toggle) toggle.className = "switch-track active-cyan";
+        if (turboText) {
+          turboText.textContent = "99% Clamped";
+          turboText.style.color = "var(--cyan)";
         }
-      } catch (err) {
-        console.error("Failed to toggle auto start:", err);
-      }
-    }
-
-    function updateAutoStartUI(enabled) {
-      const btn = document.getElementById('autoStartBtn');
-      const ind = document.getElementById('autoStartIndicator');
-      const txt = document.getElementById('autoStartText');
-      if (!btn || !ind || !txt) return;
-
-      if (enabled) {
-        btn.classList.add('border-amber-500/50', 'bg-amber-950/20');
-        ind.className = 'w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]';
-        txt.textContent = "Enabled";
-        txt.className = "text-[11px] text-amber-400 font-semibold";
       } else {
-        btn.classList.remove('border-amber-500/50', 'bg-amber-950/20');
-        ind.className = 'w-2 h-2 rounded-full bg-slate-600';
-        txt.textContent = "Disabled";
-        txt.className = "text-[11px] text-slate-400 font-medium";
+        if (toggle) toggle.className = "switch-track";
+        if (turboText) {
+          turboText.textContent = "Boost Active";
+          turboText.style.color = "var(--emerald)";
+        }
       }
     }
 
     function updateAutoTameUI(enabled) {
-      const btn = document.getElementById('autoTameBtn');
-      const ind = document.getElementById('autoTameIndicator');
-      if (!btn || !ind) return;
-
-      if (enabled) {
-        btn.classList.add('border-emerald-500', 'bg-emerald-950/20');
-        ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-emerald-400 bg-emerald-400 shadow-[0_0_8px_#34d399]';
-      } else {
-        btn.classList.remove('border-emerald-500', 'bg-emerald-950/20');
-        ind.className = 'w-3.5 h-3.5 rounded-full border-2 border-slate-600 bg-slate-700';
+      const toggle = document.getElementById('autoTameToggleBtn');
+      if (toggle) {
+        if (enabled) {
+          toggle.className = "switch-track active-emerald";
+        } else {
+          toggle.className = "switch-track";
+        }
       }
     }
 
     function renderSnapshot(snapshot) {
       if (!snapshot) return;
 
-      // 1. Thermals
+      // 1. CPU Package Thermals
       const cpuTemp = snapshot.thermals ? snapshot.thermals.cpu_package_temp : null;
-      const cpuEl = document.getElementById('cpuTempText');
+      const cpuTempInt = document.getElementById('cpuTempInt');
       const cpuBar = document.getElementById('cpuTempBar');
+      const cpuBadge = document.getElementById('cpuStatusBadge');
+      const cpuMinText = document.getElementById('cpuMinText');
+      const cpuCeilingText = document.getElementById('cpuCeilingText');
 
       if (cpuTemp !== null && cpuTemp !== undefined) {
-        cpuEl.textContent = `${cpuTemp.toFixed(1)}°C`;
-        const pct = Math.min(100, Math.max(10, (cpuTemp / 100) * 100));
-        cpuBar.style.width = `${pct}%`;
+        if (cpuTempInt) cpuTempInt.textContent = cpuTemp.toFixed(1);
+        if (minCpuTempRecorded === null || cpuTemp < minCpuTempRecorded) {
+          minCpuTempRecorded = cpuTemp;
+        }
+        if (cpuMinText) cpuMinText.textContent = `Min ${minCpuTempRecorded.toFixed(1)}°C`;
+        if (cpuCeilingText) {
+          if (snapshot.is_turbo_boost_clamped) {
+            cpuCeilingText.textContent = "Clamped (99%)";
+            cpuCeilingText.style.color = "var(--cyan)";
+          } else if (currentConfig.auto_cool) {
+            cpuCeilingText.textContent = `Ceiling ${currentConfig.auto_cool_temp_threshold || 88}°C`;
+            cpuCeilingText.style.color = "var(--text-muted)";
+          } else {
+            cpuCeilingText.textContent = "Manual (100%)";
+            cpuCeilingText.style.color = "var(--text-muted)";
+          }
+        }
 
-        if (cpuTemp >= 85) {
-          cpuEl.className = "text-3xl font-extrabold font-mono text-red-500";
-          cpuBar.className = "bg-red-500 h-full rounded-full transition-all";
-        } else if (cpuTemp >= 70) {
-          cpuEl.className = "text-3xl font-extrabold font-mono text-yellow-400";
-          cpuBar.className = "bg-yellow-400 h-full rounded-full transition-all";
-        } else {
-          cpuEl.className = "text-3xl font-extrabold font-mono text-emerald-400";
-          cpuBar.className = "bg-emerald-400 h-full rounded-full transition-all";
+        const pct = Math.min(100, Math.max(10, (cpuTemp / 100) * 100));
+        if (cpuBar) {
+          cpuBar.style.width = `${pct}%`;
+          if (cpuTemp >= 85) {
+            cpuBar.style.background = "var(--rose)";
+            if (cpuBadge) {
+              cpuBadge.textContent = "Hot";
+              cpuBadge.style.color = "var(--rose)";
+            }
+          } else if (cpuTemp >= 70) {
+            cpuBar.style.background = "var(--amber)";
+            if (cpuBadge) {
+              cpuBadge.textContent = "Warm";
+              cpuBadge.style.color = "var(--amber)";
+            }
+          } else {
+            cpuBar.style.background = "var(--emerald)";
+            if (cpuBadge) {
+              cpuBadge.textContent = "Nominal";
+              cpuBadge.style.color = "var(--emerald)";
+            }
+          }
         }
       } else {
-        cpuEl.textContent = "Optimal";
-        cpuEl.className = "text-3xl font-extrabold font-mono text-emerald-400";
-        cpuBar.style.width = "35%";
-        cpuBar.className = "bg-emerald-400 h-full rounded-full transition-all";
+        if (cpuTempInt) cpuTempInt.textContent = "--";
       }
 
-      // GPU
+      // GPU Thermals & Real Hardware Metrics
       const gpuTemp = snapshot.thermals ? snapshot.thermals.gpu_temp : null;
-      const gpuEl = document.getElementById('gpuTempText');
+      const gpuTempInt = document.getElementById('gpuTempInt');
       const gpuBar = document.getElementById('gpuTempBar');
+      const gpuBadge = document.getElementById('gpuStatusBadge');
       if (gpuTemp !== null && gpuTemp !== undefined) {
-        gpuEl.textContent = `${gpuTemp.toFixed(1)}°C`;
-        gpuBar.style.width = `${Math.min(100, (gpuTemp / 90) * 100)}%`;
+        if (gpuTempInt) gpuTempInt.textContent = gpuTemp.toFixed(1);
+        if (gpuBar) gpuBar.style.width = `${Math.min(100, (gpuTemp / 90) * 100)}%`;
+        if (gpuBadge) {
+          if (gpuTemp >= 80) {
+            gpuBadge.textContent = "Hot";
+            gpuBadge.style.color = "var(--rose)";
+          } else if (gpuTemp >= 65) {
+            gpuBadge.textContent = "Warm";
+            gpuBadge.style.color = "var(--amber)";
+          } else {
+            gpuBadge.textContent = "Nominal";
+            gpuBadge.style.color = "var(--emerald)";
+          }
+        }
       } else {
-        gpuEl.textContent = "N/A";
+        if (gpuTempInt) gpuTempInt.textContent = "--";
       }
 
       const gpuPower = snapshot.thermals ? snapshot.thermals.gpu_power_w : null;
       const gpuPowerEl = document.getElementById('gpuPowerText');
       if (gpuPowerEl) {
-        gpuPowerEl.textContent = gpuPower ? `${gpuPower.toFixed(1)} W` : "";
+        gpuPowerEl.textContent = gpuPower ? `${gpuPower.toFixed(1)} W` : "-- W";
       }
 
-      // Power
-      const powerEl = document.getElementById('powerStatusText');
-      if (powerEl && snapshot.thermals) {
+      const powerStatusEl = document.getElementById('gpuPowerStatusText');
+      if (powerStatusEl && snapshot.thermals) {
         if (snapshot.thermals.is_ac_online) {
-          powerEl.textContent = "AC Online";
-          powerEl.className = "font-mono text-[11px] text-emerald-400";
+          powerStatusEl.textContent = snapshot.thermals.battery_percent ? `AC (${snapshot.thermals.battery_percent}%)` : "AC Online";
         } else {
-          powerEl.textContent = "Battery";
-          powerEl.className = "font-mono text-[11px] text-yellow-400";
+          powerStatusEl.textContent = snapshot.thermals.battery_percent ? `Batt ${snapshot.thermals.battery_percent}%` : "Battery";
         }
       }
 
-      // Turbo Boost state
+      const gpuUtilEl = document.getElementById('gpuUtilText');
+      if (gpuUtilEl && snapshot.thermals) {
+        const util = snapshot.thermals.gpu_utilization_pct;
+        gpuUtilEl.textContent = util !== null && util !== undefined ? `Load ${util.toFixed(0)}%` : "Load 0%";
+      }
+
+      const gpuClockEl = document.getElementById('gpuClockText');
+      if (gpuClockEl && snapshot.thermals) {
+        const clock = snapshot.thermals.gpu_clock_mhz;
+        gpuClockEl.textContent = clock !== null && clock !== undefined ? `Clock ${clock} MHz` : "Clock Idle";
+      }
+
+      // Footer Dynamic Metrics
+      const footerOsEl = document.getElementById('footerOsText');
+      if (footerOsEl && snapshot.os_version) {
+        footerOsEl.textContent = snapshot.os_version;
+      }
+
+      const footerStatusEl = document.getElementById('footerQuickStatusText');
+      if (footerStatusEl) {
+        const coolModeStr = currentConfig.auto_cool ? `Auto ${currentConfig.auto_cool_temp_threshold || 88}°C` : "Manual";
+        const trayStr = currentConfig.close_to_tray ? "Tray On" : "Quit";
+        footerStatusEl.textContent = `Active (${coolModeStr} • ${trayStr})`;
+      }
+
+      // Turbo Boost State
       updateGovernorUI(snapshot.is_turbo_boost_clamped);
       isCoolModeActive = snapshot.is_turbo_boost_clamped;
 
-      // Auto Tame state
-      if (snapshot.auto_tame_enabled !== undefined && snapshot.auto_tame_enabled !== null) {
+      // Auto Tame State
+      if (snapshot.auto_tame_enabled !== undefined) {
         updateAutoTameUI(snapshot.auto_tame_enabled);
         isAutoTameActive = snapshot.auto_tame_enabled;
       }
 
-      // Cores & Total CPU
-      const cpuClock = document.getElementById('cpuClock');
-      if (cpuClock) cpuClock.textContent = `${snapshot.logical_cores || 16} Threads`;
+      // Auto Cool State
+      if (snapshot.auto_cool_enabled !== undefined) {
+        currentConfig.auto_cool = snapshot.auto_cool_enabled;
+        renderCoolModeDashboardBadge();
+      }
+
+      // Threads and Cores
+      const cpuThreads = document.getElementById('cpuThreadsText');
+      if (cpuThreads) cpuThreads.textContent = `${snapshot.logical_cores || 16} Threads`;
 
       const totalCpuBadge = document.getElementById('totalCpuBadge');
       if (totalCpuBadge) {
-        totalCpuBadge.textContent = `CPU: ${(snapshot.total_cpu_pct || 0).toFixed(1)}%`;
+        totalCpuBadge.textContent = `${(snapshot.total_cpu_pct || 0).toFixed(1)}%`;
       }
 
-      // 2. Rogue Alerts
+      // 2. Rogue Alert Banner (Only render when alert exists)
       const alertContainer = document.getElementById('alertContainer');
-      const statusBadge = document.getElementById('statusBadge');
-      const statusBadgeText = document.getElementById('statusBadgeText');
+      const headerStatusText = document.getElementById('headerStatusText');
+      const headerStatusBadge = document.getElementById('headerStatusBadge');
 
       if (snapshot.rogue_alerts && snapshot.rogue_alerts.length > 0) {
-        if (statusBadge) {
-          statusBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold animate-pulse";
-        }
-        if (statusBadgeText) {
-          statusBadgeText.textContent = `ROGUE DETECTED (${snapshot.rogue_alerts.length})`;
-        }
+        if (headerStatusText) headerStatusText.textContent = `Alert (${snapshot.rogue_alerts.length})`;
+        if (headerStatusBadge) headerStatusBadge.style.color = "var(--rose)";
 
         let html = '';
         for (const alert of snapshot.rogue_alerts) {
           const isTamed = snapshot.tamed_pids && snapshot.tamed_pids.includes(alert.pid);
           html += `
-            <div class="acrylic rounded-2xl p-3.5 border-red-500/40 bg-red-950/20 mb-2 glow-red">
-              <div class="flex items-start justify-between">
-                <div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs font-extrabold text-red-400 uppercase tracking-wide">🚨 Runaway Single-Core Loop</span>
-                    ${isTamed ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">TAMED (10% CAP)</span>' : ''}
-                  </div>
-                  <p class="text-sm font-bold text-white mt-1">${alert.process_name} <span class="text-xs text-slate-400 font-mono">(PID: ${alert.pid})</span></p>
-                  <p class="text-[11px] text-amber-300/90 mt-0.5">Core Saturation: <span class="font-bold">${alert.single_core_saturation_pct.toFixed(1)}%</span> • Duration: ${alert.sustained_seconds}s</p>
-                  <p class="text-[10px] text-slate-400 mt-0.5">${alert.reason}</p>
+            <div style="background: var(--bg-surface); border: 1px solid rgba(248, 113, 113, 0.35); border-left: 3px solid var(--rose); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 11px; font-weight: 600; color: var(--rose); text-transform: uppercase; letter-spacing: 0.05em;">High Core Saturation</span>
+                <span class="tabular" style="font-size: 10px; color: var(--text-dim);">PID ${alert.pid}</span>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="font-family: var(--font-mono); font-size: 11px;">
+                  <span style="font-weight: 600; color: #ffffff;">${alert.process_name}</span>
+                  <span style="color: var(--text-dim); margin: 0 4px;">•</span>
+                  <span style="color: var(--rose); font-weight: 600;">${alert.single_core_saturation_pct.toFixed(1)}% core</span>
+                  <span style="color: var(--text-dim); margin: 0 4px;">•</span>
+                  <span style="color: var(--text-muted);">${alert.sustained_seconds}s</span>
                 </div>
-                <div class="flex flex-col gap-1.5 flex-shrink-0 ml-3">
-                  ${!isTamed ? `<button onclick="softTamePid(${alert.pid})" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow">🛡️ Tame (10%)</button>` : `<button onclick="revertPid(${alert.pid})" class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-700 hover:bg-slate-600 text-white">Undo</button>`}
-                  <button onclick="terminatePid(${alert.pid}, '${alert.process_name}')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-red-600/80 hover:bg-red-600 text-white">❌ Kill</button>
+                <div style="display: flex; gap: 6px;">
+                  ${!isTamed ?
+                    `<button class="btn-action" onclick="softTamePid(${alert.pid})">Tame (10%)</button>` :
+                    `<button class="btn-action tamed" onclick="revertPid(${alert.pid})">Undo</button>`
+                  }
+                  <button class="btn-action danger" onclick="terminatePid(${alert.pid}, '${alert.process_name}')">Force Quit</button>
                 </div>
               </div>
             </div>
@@ -475,52 +893,40 @@
         }
         if (alertContainer) alertContainer.innerHTML = html;
       } else {
-        if (statusBadge) {
-          statusBadge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold";
-        }
-        if (statusBadgeText) {
-          statusBadgeText.textContent = "GUARDIAN ACTIVE";
-        }
-        if (alertContainer) {
-          alertContainer.innerHTML = `
-            <div class="acrylic rounded-2xl p-3 flex items-center gap-3 border-emerald-500/20 bg-emerald-950/10">
-              <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                ✓
-              </div>
-              <div>
-                <p class="text-xs font-bold text-emerald-400">Thermals & Threads Healthy</p>
-                <p class="text-[11px] text-slate-400">No runaway single-core loops detected.</p>
-              </div>
-            </div>
-          `;
-        }
+        if (headerStatusText) headerStatusText.textContent = "Guardian Active";
+        if (headerStatusBadge) headerStatusBadge.style.color = "var(--emerald)";
+        if (alertContainer) alertContainer.innerHTML = '';
       }
 
-      // 3. Process Table
+      // 3. Process Table Rows
       const tbody = document.getElementById('processTableBody');
       if (tbody && snapshot.top_processes && snapshot.top_processes.length > 0) {
         let rows = '';
         for (const p of snapshot.top_processes) {
           const isTamed = snapshot.tamed_pids && snapshot.tamed_pids.includes(p.pid);
-          let satColor = "text-slate-400";
-          if (p.top_thread_saturation_pct >= 80) satColor = "text-red-400 font-bold";
-          else if (p.top_thread_saturation_pct >= 40) satColor = "text-yellow-400 font-semibold";
+          let satColor = "var(--text-muted)";
+          if (p.top_thread_saturation_pct >= 80) {
+            satColor = "var(--rose)";
+          } else if (p.top_thread_saturation_pct >= 40) {
+            satColor = "var(--amber)";
+          }
 
           rows += `
-            <tr class="hover:bg-slate-800/40 transition">
-              <td class="py-1.5 px-2">
-                <div class="font-medium text-white truncate max-w-[140px]">${p.name}</div>
-                <div class="text-[9px] text-slate-500">PID: ${p.pid} ${p.is_orphan ? '<span class="text-red-400 font-bold ml-1">ORPHAN</span>' : ''}</div>
-              </td>
-              <td class="py-1.5 px-2 text-right text-slate-300 font-bold">${(p.total_cpu_pct || 0).toFixed(1)}%</td>
-              <td class="py-1.5 px-2 text-right ${satColor}">${(p.top_thread_saturation_pct || 0).toFixed(1)}%</td>
-              <td class="py-1.5 px-2 text-center">
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1.2fr 1fr; padding: 7px 12px; align-items: center; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.02); transition: background 0.1s ease;" onmouseenter="this.style.background='var(--bg-hover)'" onmouseleave="this.style.background='transparent'">
+              <div style="display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 8px;">
+                <span class="tabular" style="color: #ffffff; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.name}</span>
+                <span class="tabular" style="font-size: 9px; color: var(--text-dim);">${p.pid}</span>
+                ${p.is_orphan ? '<span style="font-size: 8px; font-weight: 700; color: var(--rose); background: var(--rose-dim); padding: 1px 3px; border-radius: 2px;">ORPHAN</span>' : ''}
+              </div>
+              <div class="tabular" style="text-align: right; color: var(--text-muted); font-weight: 500;">${(p.total_cpu_pct || 0).toFixed(1)}%</div>
+              <div class="tabular" style="text-align: right; color: ${satColor}; font-weight: 600;">${(p.top_thread_saturation_pct || 0).toFixed(1)}%</div>
+              <div style="display: flex; justify-content: flex-end;">
                 ${isTamed ?
-                  `<button onclick="revertPid(${p.pid})" class="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30">TAMED</button>` :
-                  `<button onclick="softTamePid(${p.pid})" class="text-[10px] text-slate-400 hover:text-sky-400 px-1.5 py-0.5 rounded hover:bg-slate-800">Tame</button>`
+                  `<button onclick="revertPid(${p.pid})" class="btn-action tamed" style="padding: 2px 6px; font-size: 10px;">Tamed</button>` :
+                  `<button onclick="softTamePid(${p.pid})" class="btn-action" style="padding: 2px 6px; font-size: 10px;">Tame</button>`
                 }
-              </td>
-            </tr>
+              </div>
+            </div>
           `;
         }
         tbody.innerHTML = rows;
@@ -533,31 +939,27 @@
     }
 
     async function initApp() {
-      // Wait for Tauri IPC injection
       for (let i = 0; i < 25; i++) {
         if (getTauriInvoke()) break;
         await new Promise(r => setTimeout(r, 100));
       }
 
-      // 1. Immediate initial snapshot & autostart pull
-      await refreshNow();
-
       try {
-        const autostart = await invokeCmd('get_autostart');
-        if (autostart !== null && autostart !== undefined) {
-          isAutoStartActive = autostart;
-          updateAutoStartUI(autostart);
+        const cfg = await invokeCmd('get_config');
+        if (cfg) {
+          currentConfig = cfg;
+          renderSettingsUI();
         }
       } catch (err) {
-        console.warn("Autostart query notice:", err);
+        console.warn("Config query notice:", err);
       }
 
-      // 2. Continuous reliable polling loop every 1.5 seconds
+      await refreshNow();
+
       setInterval(async () => {
         await refreshNow();
       }, 1500);
 
-      // 3. Hook into Tauri v2 event if available
       try {
         if (window.__TAURI__?.event?.listen) {
           await window.__TAURI__.event.listen('snapshot-update', (event) => {
@@ -565,7 +967,7 @@
           });
         }
       } catch (err) {
-        console.warn("Event listener attachment notice (polling is active):", err);
+        console.warn("Event listener notice:", err);
       }
     }
 

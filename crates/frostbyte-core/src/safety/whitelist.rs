@@ -43,6 +43,7 @@ const HARDCODED_IMMUNE_PROCESSES: &[&str] = &[
     // FrostByte itself
     "frostbyte.exe",
     "frostbyte-cli.exe",
+    "frostbyte-app.exe",
 ];
 
 pub struct SafetyEngine {

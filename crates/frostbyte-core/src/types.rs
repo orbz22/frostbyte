@@ -6,6 +6,8 @@ pub struct ThermalSnapshot {
     pub max_core_temp: Option<f32>,
     pub gpu_temp: Option<f32>,
     pub gpu_power_w: Option<f32>,
+    pub gpu_utilization_pct: Option<f32>,
+    pub gpu_clock_mhz: Option<u32>,
     pub is_ac_online: bool,
     pub battery_percent: Option<u8>,
 }
@@ -51,7 +53,9 @@ pub struct SystemSnapshot {
     pub logical_cores: u32,
     pub is_turbo_boost_clamped: bool,
     pub auto_tame_enabled: bool,
+    pub auto_cool_enabled: bool,
     pub tamed_pids: Vec<u32>,
     pub top_processes: Vec<ProcessSample>,
     pub rogue_alerts: Vec<RogueAlert>,
+    pub os_version: String,
 }

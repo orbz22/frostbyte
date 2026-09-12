@@ -6,14 +6,23 @@
   "build": {
     "frontendDist": "ui"
   },
+  "bundle": {
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ]
+  },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
         "title": "FrostByte Thermal Guardian",
-        "width": 560,
-        "height": 740,
+        "width": 580,
+        "height": 760,
         "resizable": false,
         "center": true,
         "visible": true
