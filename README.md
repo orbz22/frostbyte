@@ -8,6 +8,15 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/orbz22/frostbyte/stargazers"><img src="https://img.shields.io/github/stars/orbz22/frostbyte?style=flat&labelColor=0d1117&color=38bdf8" alt="Stars"></a>
+  <a href="https://github.com/orbz22/frostbyte/releases/latest"><img src="https://img.shields.io/github/downloads/orbz22/frostbyte/total?style=flat&labelColor=0d1117&color=34d399&label=downloads" alt="Downloads"></a>
+  <a href="https://github.com/orbz22/frostbyte/releases/latest"><img src="https://img.shields.io/github/v/release/orbz22/frostbyte?style=flat&labelColor=0d1117&color=38bdf8&label=release" alt="Latest release"></a>
+  <a href="https://github.com/orbz22/frostbyte/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/orbz22/frostbyte/ci.yml?branch=main&style=flat&labelColor=0d1117&label=build" alt="Build status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/orbz22/frostbyte?style=flat&labelColor=0d1117&color=8b92a0" alt="License"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0d1117?style=flat&labelColor=0d1117&color=8b92a0" alt="Platform">
+</p>
+
+<p align="center">
   <img src="assets/screenshots/dashboard.png" alt="FrostByte Dashboard" width="460">
 </p>
 
