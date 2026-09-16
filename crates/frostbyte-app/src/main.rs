@@ -80,6 +80,9 @@ pub struct AppConfig {
     pub close_to_tray: bool,
     pub saturation_threshold: f32,
     pub auto_cool_temp_threshold: f32,
+    pub cpu_temp_monitoring: bool,
+    pub gpu_temp_monitoring: bool,
+    pub gpu_monitoring: bool,
 }
 
 impl Default for AppConfig {
@@ -92,6 +95,9 @@ impl Default for AppConfig {
             close_to_tray: true,
             saturation_threshold: 80.0,
             auto_cool_temp_threshold: 88.0,
+            cpu_temp_monitoring: true,
+            gpu_temp_monitoring: true,
+            gpu_monitoring: true,
         }
     }
 }
@@ -168,6 +174,9 @@ fn update_config(state: State<'_, AppState>, new_config: AppConfig) -> Result<Ap
         watchdog.set_saturation_threshold(new_config.saturation_threshold);
         watchdog.set_auto_cool(new_config.auto_cool);
         watchdog.set_auto_cool_threshold(new_config.auto_cool_temp_threshold);
+        watchdog.set_cpu_temp_monitoring(new_config.cpu_temp_monitoring);
+        watchdog.set_gpu_temp_monitoring(new_config.gpu_temp_monitoring);
+        watchdog.set_gpu_monitoring(new_config.gpu_monitoring);
     }
 
     if let Some(items) = state.tray_items.lock().clone() {
@@ -191,6 +200,42 @@ fn set_auto_cool(state: State<'_, AppState>, enabled: bool) -> bool {
 
     let mut cfg = state.config.lock();
     cfg.auto_cool = enabled;
+    save_config(&cfg);
+
+    enabled
+}
+
+#[tauri::command]
+fn set_cpu_temp_monitoring(state: State<'_, AppState>, enabled: bool) -> bool {
+    let mut watchdog = state.watchdog.lock();
+    watchdog.set_cpu_temp_monitoring(enabled);
+
+    let mut cfg = state.config.lock();
+    cfg.cpu_temp_monitoring = enabled;
+    save_config(&cfg);
+
+    enabled
+}
+
+#[tauri::command]
+fn set_gpu_temp_monitoring(state: State<'_, AppState>, enabled: bool) -> bool {
+    let mut watchdog = state.watchdog.lock();
+    watchdog.set_gpu_temp_monitoring(enabled);
+
+    let mut cfg = state.config.lock();
+    cfg.gpu_temp_monitoring = enabled;
+    save_config(&cfg);
+
+    enabled
+}
+
+#[tauri::command]
+fn set_gpu_monitoring(state: State<'_, AppState>, enabled: bool) -> bool {
+    let mut watchdog = state.watchdog.lock();
+    watchdog.set_gpu_monitoring(enabled);
+
+    let mut cfg = state.config.lock();
+    cfg.gpu_monitoring = enabled;
     save_config(&cfg);
 
     enabled
@@ -303,6 +348,9 @@ fn main() {
         config.auto_cool,
         config.auto_cool_temp_threshold,
     );
+    initial_wd.set_cpu_temp_monitoring(config.cpu_temp_monitoring);
+    initial_wd.set_gpu_temp_monitoring(config.gpu_temp_monitoring);
+    initial_wd.set_gpu_monitoring(config.gpu_monitoring);
     if config.cool_mode {
         let _ = initial_wd.set_turbo_boost(false);
     }
@@ -537,6 +585,9 @@ fn main() {
             set_cool_mode,
             set_auto_cool,
             set_auto_tame,
+            set_cpu_temp_monitoring,
+            set_gpu_temp_monitoring,
+            set_gpu_monitoring,
             get_autostart,
             set_autostart,
             set_close_to_tray,

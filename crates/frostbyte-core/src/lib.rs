@@ -160,6 +160,9 @@ impl Watchdog {
             is_turbo_boost_clamped,
             auto_tame_enabled: self.auto_tame_enabled,
             auto_cool_enabled: self.governor.is_auto_cool_enabled(),
+            cpu_temp_monitoring_enabled: self.thermal.is_cpu_temp_monitoring(),
+            gpu_temp_monitoring_enabled: self.thermal.is_gpu_temp_monitoring(),
+            gpu_monitoring_enabled: self.thermal.is_gpu_monitoring(),
             tamed_pids,
             top_processes,
             rogue_alerts,
@@ -198,6 +201,39 @@ impl Watchdog {
 
     pub fn set_auto_cool(&mut self, enabled: bool) {
         self.governor.set_auto_cool(enabled);
+    }
+
+    /// Enables or disables CPU package temperature monitoring.
+    /// Turning it off also releases any active cooling clamp, since the thermal
+    /// governor would otherwise have no reading left to restore boost with.
+    pub fn set_cpu_temp_monitoring(&mut self, enabled: bool) {
+        self.thermal.set_cpu_temp_monitoring(enabled);
+        if !enabled {
+            self.governor.release_clamp();
+        }
+    }
+
+    pub fn is_cpu_temp_monitoring(&self) -> bool {
+        self.thermal.is_cpu_temp_monitoring()
+    }
+
+    /// Enables or disables discrete GPU temperature monitoring.
+    pub fn set_gpu_temp_monitoring(&mut self, enabled: bool) {
+        self.thermal.set_gpu_temp_monitoring(enabled);
+    }
+
+    pub fn is_gpu_temp_monitoring(&self) -> bool {
+        self.thermal.is_gpu_temp_monitoring()
+    }
+
+    /// Master switch for discrete GPU telemetry. Disabling it stops `nvidia-smi`
+    /// from being spawned each tick, so all GPU metrics go silent.
+    pub fn set_gpu_monitoring(&mut self, enabled: bool) {
+        self.thermal.set_gpu_monitoring(enabled);
+    }
+
+    pub fn is_gpu_monitoring(&self) -> bool {
+        self.thermal.is_gpu_monitoring()
     }
 
     pub fn is_auto_cool_enabled(&self) -> bool {

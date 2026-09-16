@@ -150,41 +150,90 @@ impl Drop for PdhThermalZone {
 }
 
 pub struct ThermalProvider {
-    nvidia_smi_available: bool,
+    /// Lazily resolved: `None` until the first GPU query actually needs it.
+    /// Probing eagerly would spawn `nvidia-smi` at startup, which on Optimus /
+    /// switchable-graphics laptops wakes the discrete GPU before the user's
+    /// "GPU Monitoring off" preference has even been applied.
+    nvidia_smi_available: Option<bool>,
     pdh_thermal: Option<PdhThermalZone>,
+    cpu_temp_monitoring: bool,
+    gpu_temp_monitoring: bool,
+    gpu_monitoring: bool,
 }
 
 impl ThermalProvider {
     pub fn new() -> Self {
-        // Quick probe for nvidia-smi with CREATE_NO_WINDOW
-        let nvidia_smi_available = Command::new("nvidia-smi")
-            .creation_flags(CREATE_NO_WINDOW)
-            .arg("--help")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-
         // Initialize native Win32 PDH thermal zone counter (in-process, 0 latency, standard user friendly)
+        // No GPU probing happens here on purpose -- see `nvidia_smi_available`.
         let pdh_thermal = PdhThermalZone::new();
 
         Self {
-            nvidia_smi_available,
+            nvidia_smi_available: None,
             pdh_thermal,
+            cpu_temp_monitoring: true,
+            gpu_temp_monitoring: true,
+            gpu_monitoring: true,
         }
+    }
+
+    /// Enables or disables CPU package temperature sampling.
+    /// When disabled, the ACPI thermal zone query is skipped entirely and
+    /// `cpu_package_temp` is reported as `None`.
+    pub fn set_cpu_temp_monitoring(&mut self, enabled: bool) {
+        self.cpu_temp_monitoring = enabled;
+    }
+
+    pub fn is_cpu_temp_monitoring(&self) -> bool {
+        self.cpu_temp_monitoring
+    }
+
+    /// Enables or disables discrete GPU temperature reporting.
+    /// Other GPU metrics (power, utilization, clock) keep reporting; use
+    /// [`set_gpu_monitoring`](Self::set_gpu_monitoring) to stop querying the GPU entirely.
+    pub fn set_gpu_temp_monitoring(&mut self, enabled: bool) {
+        self.gpu_temp_monitoring = enabled;
+    }
+
+    pub fn is_gpu_temp_monitoring(&self) -> bool {
+        self.gpu_temp_monitoring
+    }
+
+    /// Master switch for all discrete GPU telemetry. When disabled, `nvidia-smi`
+    /// is never spawned, so every GPU metric (temperature, power, utilization,
+    /// clock) reports `None` and the per-tick subprocess cost disappears.
+    pub fn set_gpu_monitoring(&mut self, enabled: bool) {
+        self.gpu_monitoring = enabled;
+    }
+
+    pub fn is_gpu_monitoring(&self) -> bool {
+        self.gpu_monitoring
     }
 
     /// Captures a combined snapshot of system thermals and power state.
     pub fn sample(&mut self) -> ThermalSnapshot {
         let (is_ac_online, battery_percent) = self.get_power_status();
-        let (gpu_temp, gpu_power_w, gpu_utilization_pct, gpu_clock_mhz) = self.get_gpu_metrics();
+        let (raw_gpu_temp, gpu_power_w, gpu_utilization_pct, gpu_clock_mhz) =
+            self.get_gpu_metrics();
+        let gpu_temp = if self.gpu_temp_monitoring {
+            raw_gpu_temp
+        } else {
+            None
+        };
 
         // 1. Direct hardware temperature via native Win32 PDH (Thermal Zone / ACPI)
-        let mut cpu_package_temp = self.pdh_thermal.as_mut().and_then(|pdh| pdh.sample());
+        let mut cpu_package_temp = if self.cpu_temp_monitoring {
+            self.pdh_thermal.as_mut().and_then(|pdh| pdh.sample())
+        } else {
+            None
+        };
 
         // 2. Fallback: If hardware thermal zones are not supported by the motherboard DSDT,
         // use discrete GPU temperature as an indicator of shared heatsink load.
-        if cpu_package_temp.is_none() && gpu_temp.is_some() {
-            cpu_package_temp = gpu_temp.map(|t| (t + 4.0).min(99.0));
+        // The raw GPU reading is used so the fallback still works when only the
+        // GPU temperature *reporting* has been turned off. Turning off GPU
+        // monitoring entirely removes this fallback along with the query.
+        if self.cpu_temp_monitoring && cpu_package_temp.is_none() && raw_gpu_temp.is_some() {
+            cpu_package_temp = raw_gpu_temp.map(|t| (t + 4.0).min(99.0));
         }
 
         ThermalSnapshot {
@@ -218,8 +267,28 @@ impl ThermalProvider {
     }
 
     /// Query NVIDIA GPU metrics via nvidia-smi with CREATE_NO_WINDOW.
-    fn get_gpu_metrics(&self) -> (Option<f32>, Option<f32>, Option<f32>, Option<u32>) {
-        if !self.nvidia_smi_available {
+    fn get_gpu_metrics(&mut self) -> (Option<f32>, Option<f32>, Option<f32>, Option<u32>) {
+        // Checked before the availability probe: with GPU monitoring off, `nvidia-smi`
+        // must never be executed, not even once to test for its presence.
+        if !self.gpu_monitoring {
+            return (None, None, None, None);
+        }
+
+        let available = match self.nvidia_smi_available {
+            Some(known) => known,
+            None => {
+                let probed = Command::new("nvidia-smi")
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .arg("--help")
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false);
+                self.nvidia_smi_available = Some(probed);
+                probed
+            }
+        };
+
+        if !available {
             return (None, None, None, None);
         }
 
@@ -256,6 +325,82 @@ impl Default for ThermalProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_temp_monitoring_toggles_suppress_readings() {
+        let mut provider = ThermalProvider::new();
+        assert!(provider.is_cpu_temp_monitoring());
+        assert!(provider.is_gpu_temp_monitoring());
+
+        provider.set_cpu_temp_monitoring(false);
+        provider.set_gpu_temp_monitoring(false);
+
+        let snapshot = provider.sample();
+        assert!(
+            snapshot.cpu_package_temp.is_none(),
+            "CPU temp must be suppressed while monitoring is off"
+        );
+        assert!(
+            snapshot.max_core_temp.is_none(),
+            "Max core temp must be suppressed while monitoring is off"
+        );
+        assert!(
+            snapshot.gpu_temp.is_none(),
+            "GPU temp must be suppressed while monitoring is off"
+        );
+
+        provider.set_cpu_temp_monitoring(true);
+        provider.set_gpu_temp_monitoring(true);
+        assert!(provider.is_cpu_temp_monitoring());
+        assert!(provider.is_gpu_temp_monitoring());
+    }
+
+    /// Guards the "keep the discrete GPU asleep" contract: with GPU monitoring off,
+    /// `nvidia-smi` must never be executed -- not even the availability probe.
+    #[test]
+    fn test_gpu_off_never_probes_nvidia_smi() {
+        let mut provider = ThermalProvider::new();
+        assert!(
+            provider.nvidia_smi_available.is_none(),
+            "constructing a provider must not probe the GPU"
+        );
+
+        provider.set_gpu_monitoring(false);
+        let snapshot = provider.sample();
+
+        assert!(
+            provider.nvidia_smi_available.is_none(),
+            "sampling with GPU monitoring off must not probe nvidia-smi"
+        );
+        assert!(snapshot.gpu_temp.is_none());
+
+        println!(
+            "CPU temp with the GPU untouched: {:?}",
+            snapshot.cpu_package_temp
+        );
+    }
+
+    #[test]
+    fn test_gpu_monitoring_master_switch_silences_all_gpu_metrics() {
+        let mut provider = ThermalProvider::new();
+        assert!(provider.is_gpu_monitoring());
+
+        provider.set_gpu_monitoring(false);
+        // The temperature toggle stays on: the master switch alone must silence everything.
+        assert!(provider.is_gpu_temp_monitoring());
+
+        let snapshot = provider.sample();
+        assert!(snapshot.gpu_temp.is_none(), "GPU temp must be silent");
+        assert!(snapshot.gpu_power_w.is_none(), "GPU power must be silent");
+        assert!(
+            snapshot.gpu_utilization_pct.is_none(),
+            "GPU utilization must be silent"
+        );
+        assert!(snapshot.gpu_clock_mhz.is_none(), "GPU clock must be silent");
+
+        // Power status is unrelated to the GPU query and must keep working.
+        let _ = snapshot.is_ac_online;
+    }
 
     #[test]
     fn test_thermal_provider_real_temperature() {

@@ -408,6 +408,42 @@
             </div>
           </div>
 
+          <!-- Sensor Monitoring -->
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 2px;">
+            <span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">Sensor Monitoring</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-size: 11px; font-weight: 600; color: var(--text-main);">CPU Temperature</div>
+                  <div id="settingCpuTempDesc" style="font-size: 9px; color: var(--text-dim); margin-top: 1px;">ACPI sensor — no GPU involved</div>
+                </div>
+                <div id="settingCpuTempToggle" onclick="toggleSettingCpuTempMonitoring()" class="switch-track active-cyan" title="Toggle CPU temperature monitoring">
+                  <div id="settingCpuTempCircle" class="switch-thumb"></div>
+                </div>
+              </div>
+
+              <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-size: 11px; font-weight: 600; color: var(--text-main);">GPU Temperature</div>
+                  <div style="font-size: 9px; color: var(--text-dim); margin-top: 1px;">Discrete GPU sensor</div>
+                </div>
+                <div id="settingGpuTempToggle" onclick="toggleSettingGpuTempMonitoring()" class="switch-track active-cyan" title="Toggle GPU temperature monitoring">
+                  <div id="settingGpuTempCircle" class="switch-thumb"></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-size: 11px; font-weight: 600; color: var(--text-main);">GPU Monitoring <span style="font-family: var(--font-mono); font-size: 9px; color: var(--text-dim);">nvidia-smi</span></div>
+                <div id="settingGpuMonitoringDesc" style="font-size: 9px; color: var(--text-dim); margin-top: 1px;">On — polls the GPU, which keeps it awake</div>
+              </div>
+              <div id="settingGpuMonitoringToggle" onclick="toggleSettingGpuMonitoring()" class="switch-track active-cyan" title="Toggle all discrete GPU telemetry">
+                <div id="settingGpuMonitoringCircle" class="switch-thumb"></div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
@@ -432,7 +468,10 @@
       autostart: false,
       close_to_tray: true,
       saturation_threshold: 80.0,
-      auto_cool_temp_threshold: 88.0
+      auto_cool_temp_threshold: 88.0,
+      cpu_temp_monitoring: true,
+      gpu_temp_monitoring: true,
+      gpu_monitoring: true
     };
 
     function getTauriInvoke() {
@@ -558,11 +597,58 @@
       }
     }
 
+    async function toggleSettingCpuTempMonitoring() {
+      const nextState = !currentConfig.cpu_temp_monitoring;
+      try {
+        const res = await invokeCmd('set_cpu_temp_monitoring', { enabled: nextState });
+        if (res !== null && res !== undefined) {
+          currentConfig.cpu_temp_monitoring = res;
+          renderSettingsUI();
+          refreshNow();
+        }
+      } catch (err) {
+        console.error("Failed to toggle CPU temp monitoring:", err);
+      }
+    }
+
+    async function toggleSettingGpuTempMonitoring() {
+      const nextState = !currentConfig.gpu_temp_monitoring;
+      try {
+        const res = await invokeCmd('set_gpu_temp_monitoring', { enabled: nextState });
+        if (res !== null && res !== undefined) {
+          currentConfig.gpu_temp_monitoring = res;
+          renderSettingsUI();
+          refreshNow();
+        }
+      } catch (err) {
+        console.error("Failed to toggle GPU temp monitoring:", err);
+      }
+    }
+
+    async function toggleSettingGpuMonitoring() {
+      const nextState = !currentConfig.gpu_monitoring;
+      try {
+        const res = await invokeCmd('set_gpu_monitoring', { enabled: nextState });
+        if (res !== null && res !== undefined) {
+          currentConfig.gpu_monitoring = res;
+          renderSettingsUI();
+          refreshNow();
+        }
+      } catch (err) {
+        console.error("Failed to toggle GPU monitoring:", err);
+      }
+    }
+
     function renderCoolModeDashboardBadge() {
       const badge = document.getElementById('coolModeBadge');
       const subtext = document.getElementById('coolModeSubtext');
       if (badge && subtext) {
-        if (currentConfig.auto_cool) {
+        if (currentConfig.auto_cool && !currentConfig.cpu_temp_monitoring) {
+          badge.textContent = "PAUSED";
+          badge.style.color = "var(--amber)";
+          badge.style.background = "var(--amber-dim)";
+          subtext.textContent = "CPU sensor off — no auto-clamp";
+        } else if (currentConfig.auto_cool) {
           badge.textContent = "AUTO";
           badge.style.color = "var(--cyan)";
           badge.style.background = "var(--cyan-dim)";
@@ -635,6 +721,40 @@
         } else {
           closeTrayToggle.className = "switch-track";
         }
+      }
+
+      const cpuTempToggle = document.getElementById('settingCpuTempToggle');
+      if (cpuTempToggle) {
+        cpuTempToggle.className = currentConfig.cpu_temp_monitoring ? "switch-track active-cyan" : "switch-track";
+      }
+
+      const cpuTempDesc = document.getElementById('settingCpuTempDesc');
+      if (cpuTempDesc) {
+        cpuTempDesc.textContent = currentConfig.cpu_temp_monitoring
+          ? "ACPI sensor — no GPU involved"
+          : "Off — Instant Cool auto-clamp paused";
+        cpuTempDesc.style.color = currentConfig.cpu_temp_monitoring ? "var(--text-dim)" : "var(--amber)";
+      }
+
+      const gpuTempToggle = document.getElementById('settingGpuTempToggle');
+      if (gpuTempToggle) {
+        gpuTempToggle.className = currentConfig.gpu_temp_monitoring ? "switch-track active-cyan" : "switch-track";
+        // The temperature toggle is meaningless once the GPU is not queried at all
+        gpuTempToggle.style.opacity = currentConfig.gpu_monitoring ? '1' : '0.35';
+        gpuTempToggle.style.pointerEvents = currentConfig.gpu_monitoring ? 'auto' : 'none';
+      }
+
+      const gpuMonitoringToggle = document.getElementById('settingGpuMonitoringToggle');
+      if (gpuMonitoringToggle) {
+        gpuMonitoringToggle.className = currentConfig.gpu_monitoring ? "switch-track active-cyan" : "switch-track";
+      }
+
+      const gpuMonitoringDesc = document.getElementById('settingGpuMonitoringDesc');
+      if (gpuMonitoringDesc) {
+        gpuMonitoringDesc.textContent = currentConfig.gpu_monitoring
+          ? "On — polls the GPU, which keeps it awake"
+          : "Off — GPU never polled, lets it stay powered down";
+        gpuMonitoringDesc.style.color = currentConfig.gpu_monitoring ? "var(--text-dim)" : "var(--emerald)";
       }
 
       renderCoolModeDashboardBadge();
@@ -719,7 +839,23 @@
       const cpuMinText = document.getElementById('cpuMinText');
       const cpuCeilingText = document.getElementById('cpuCeilingText');
 
-      if (cpuTemp !== null && cpuTemp !== undefined) {
+      const cpuMonitoring = snapshot.cpu_temp_monitoring_enabled !== false;
+      currentConfig.cpu_temp_monitoring = cpuMonitoring;
+
+      if (!cpuMonitoring) {
+        if (cpuTempInt) cpuTempInt.textContent = "--";
+        if (cpuBar) cpuBar.style.width = "0%";
+        if (cpuBadge) {
+          cpuBadge.textContent = "Off";
+          cpuBadge.style.color = "var(--text-dim)";
+        }
+        if (cpuMinText) cpuMinText.textContent = "Sensor Off";
+        if (cpuCeilingText) {
+          cpuCeilingText.textContent = "Monitoring Off";
+          cpuCeilingText.style.color = "var(--text-dim)";
+        }
+        minCpuTempRecorded = null;
+      } else if (cpuTemp !== null && cpuTemp !== undefined) {
         if (cpuTempInt) cpuTempInt.textContent = cpuTemp.toFixed(1);
         if (minCpuTempRecorded === null || cpuTemp < minCpuTempRecorded) {
           minCpuTempRecorded = cpuTemp;
@@ -770,7 +906,19 @@
       const gpuTempInt = document.getElementById('gpuTempInt');
       const gpuBar = document.getElementById('gpuTempBar');
       const gpuBadge = document.getElementById('gpuStatusBadge');
-      if (gpuTemp !== null && gpuTemp !== undefined) {
+      const gpuQueryOn = snapshot.gpu_monitoring_enabled !== false;
+      const gpuMonitoring = gpuQueryOn && snapshot.gpu_temp_monitoring_enabled !== false;
+      currentConfig.gpu_temp_monitoring = snapshot.gpu_temp_monitoring_enabled !== false;
+      currentConfig.gpu_monitoring = gpuQueryOn;
+
+      if (!gpuMonitoring) {
+        if (gpuTempInt) gpuTempInt.textContent = "--";
+        if (gpuBar) gpuBar.style.width = "0%";
+        if (gpuBadge) {
+          gpuBadge.textContent = "Off";
+          gpuBadge.style.color = "var(--text-dim)";
+        }
+      } else if (gpuTemp !== null && gpuTemp !== undefined) {
         if (gpuTempInt) gpuTempInt.textContent = gpuTemp.toFixed(1);
         if (gpuBar) gpuBar.style.width = `${Math.min(100, (gpuTemp / 90) * 100)}%`;
         if (gpuBadge) {
@@ -793,6 +941,7 @@
       const gpuPowerEl = document.getElementById('gpuPowerText');
       if (gpuPowerEl) {
         gpuPowerEl.textContent = gpuPower ? `${gpuPower.toFixed(1)} W` : "-- W";
+        gpuPowerEl.style.color = gpuQueryOn ? "var(--text-main)" : "var(--text-dim)";
       }
 
       const powerStatusEl = document.getElementById('gpuPowerStatusText');
@@ -807,13 +956,21 @@
       const gpuUtilEl = document.getElementById('gpuUtilText');
       if (gpuUtilEl && snapshot.thermals) {
         const util = snapshot.thermals.gpu_utilization_pct;
-        gpuUtilEl.textContent = util !== null && util !== undefined ? `Load ${util.toFixed(0)}%` : "Load 0%";
+        if (!gpuQueryOn) {
+          gpuUtilEl.textContent = "Load --";
+        } else {
+          gpuUtilEl.textContent = util !== null && util !== undefined ? `Load ${util.toFixed(0)}%` : "Load 0%";
+        }
       }
 
       const gpuClockEl = document.getElementById('gpuClockText');
       if (gpuClockEl && snapshot.thermals) {
         const clock = snapshot.thermals.gpu_clock_mhz;
-        gpuClockEl.textContent = clock !== null && clock !== undefined ? `Clock ${clock} MHz` : "Clock Idle";
+        if (!gpuQueryOn) {
+          gpuClockEl.textContent = "Clock --";
+        } else {
+          gpuClockEl.textContent = clock !== null && clock !== undefined ? `Clock ${clock} MHz` : "Clock Idle";
+        }
       }
 
       // Footer Dynamic Metrics

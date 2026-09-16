@@ -102,6 +102,21 @@ impl PowerGovernor {
         Ok(())
     }
 
+    /// Restores normal boost if the governor is currently holding a cooling clamp.
+    /// Used when temperature input disappears (e.g. CPU temp monitoring turned off)
+    /// so the CPU is never left clamped with no way back.
+    pub fn release_clamp(&mut self) -> bool {
+        if self.state != GovernorState::CoolingClamped {
+            return false;
+        }
+        if self.set_turbo_boost(true).is_ok() {
+            self.consecutive_cool_ticks = 0;
+            true
+        } else {
+            false
+        }
+    }
+
     /// Evaluates current temperature and automatically intervenes if necessary.
     /// Returns Some(true) if boost was clamped (cooled), Some(false) if boost was restored, None if unchanged.
     pub fn evaluate_thermals(
